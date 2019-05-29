@@ -6,6 +6,7 @@ from .version import __version__
 
 try:
     from .contentsmanager import TextFileContentsManager
+    from .contentsmanager import create_text_file_contents_manager
 except ImportError as err:
     class TextFileContentsManager:
         """A class that raises the previous ImportError"""
@@ -15,9 +16,25 @@ except ImportError as err:
             raise self.err
 
 
+    def create_text_file_contents_manager():
+        return TextFileContentsManager
+
+try:
+    from jupyter_server.services.contents.largefilemanager import LargeFileManager as ServerLargeFileManager
+except ImportError:
+    ServerLargeFileManager = None
+
+
 def load_jupyter_server_extension(app):  # pragma: no cover
     """Use Jupytext's contents manager"""
-    if isinstance(app.contents_manager_class, TextFileContentsManager):
+
+    # Is app a ServerApp?
+    if isinstance(app.contents_manager_class, ServerLargeFileManager):
+        cm_class = create_text_file_contents_manager(ServerLargeFileManager)
+    else:
+        cm_class = TextFileContentsManager
+
+    if issubclass(app.contents_manager_class, cm_class):
         app.log.info("[Jupytext Server Extension] NotebookApp.contents_manager_class is "
                      "(a subclass of) jupytext.TextFileContentsManager already - OK")
         return

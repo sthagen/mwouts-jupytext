@@ -1,21 +1,14 @@
 """Find kernel specifications for a given language"""
 
 import sys
+from .reraise import reraise
 
 try:
     # I prefer not to take a dependency on jupyter_client
     from jupyter_client.kernelspec import find_kernel_specs, get_kernel_spec
 except ImportError as err:
-    def raise_error(error):
-        """Return a function that raises the given error when evaluated"""
-
-        def local_function(*args, **kwargs):
-            raise error
-
-        return local_function
-
-    find_kernel_specs = raise_error(err)
-    get_kernel_spec = raise_error(err)
+    find_kernel_specs = reraise(err)
+    get_kernel_spec = reraise(err)
 
 
 def set_kernelspec_from_language(notebook):
@@ -36,6 +29,12 @@ def kernelspec_from_language(language):
             for name in find_kernel_specs():
                 kernel_specs = get_kernel_spec(name)
                 if kernel_specs.language == 'python' and kernel_specs.argv[0] == sys.executable:
+                    return {'name': name, 'language': language, 'display_name': kernel_specs.display_name}
+
+            # If none was found, return the first kernel that has 'python' as argv[0]
+            for name in find_kernel_specs():
+                kernel_specs = get_kernel_spec(name)
+                if kernel_specs.language == 'python' and kernel_specs.argv[0] == 'python':
                     return {'name': name, 'language': language, 'display_name': kernel_specs.display_name}
 
         for name in find_kernel_specs():

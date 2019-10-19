@@ -3,6 +3,126 @@
 Release History
 ---------------
 
+1.3.0 (2019-10-??)
+++++++++++++++++++++++
+
+**Improvements**
+
+- Raw cells are now encoded using HTML comments (``<!-- #raw -->`` and ``<!-- #endraw -->``) in Markdown files (#321)
+- Markdown cells can be delimited with any of ``<!-- #region -->``,  ``<!-- #markdown -->`` or ``<!-- #md -->`` (#344)
+- Code blocks from Markdown files, when they don't have an explicit language, appear in Markdown cells in Jupyter (#321)
+- Code blocks with an explicit language and a ``.noeval`` attribute are inactive in Jupyter (#347)
+- Markdown and raw cells can be quoted with triple quotes in the ``py:percent`` format. And Markdown cells can start with just ``# %% [md]`` (#305)
+- ``jupytext notebook.py --to ipynb`` updates the timestamp of ``notebook.py`` so that the paired notebook still works in Jupyter (#335, #254)
+- The Jupyter Notebook extension for Jupytext is compatible with Jupyter Notebook 6.0 (#346)
+- Added support for Rust/Evxcr, by Jonas Bushart (#351)
+- Added support for PowerShell (#349)
+
+**BugFixes**
+
+- Commands like ``cat = x`` are not magic commands, so they are not commented any more (#339)
+- Fixed an inconsistent round trip (code cell with ``"cat"`` being converted to a markdown cell) in the ``py:light`` format (#339)
+- ``jupytext --test textfile.ext`` now really compares the text file to its round trip (rather than the corresponding notebook) (#339)
+
+
+1.2.4 (2019-09-19)
+++++++++++++++++++++++
+
+**Improvements**
+
+- The documentation includes a mention on how to set metadata filters at the command line (#330)
+- Jupytext will not catch any error when the flag ``--warn-only`` is not set (#327)
+
+**BugFixes**
+
+- Now the flag ``--warn-only`` catches every possible error (#263)
+- ``.md`` and ``.markdown`` files are treated identically (#325)
+- Fixed ``--set-kernel`` when using pipes (#326)
+- Fixed utf-8 encoding on stdout on Python 2 (#331)
+
+
+1.2.3 (2019-09-02)
+++++++++++++++++++++++
+
+**BugFixes**
+
+- Dependency on ``setuptools`` in ``pandoc.py`` made optional to fix the build of the conda package (#310, #323)
+
+
+1.2.2 (2019-09-01)
+++++++++++++++++++++++
+
+**Improvements**
+
+- Documentation includes a section on how to use Jupytext as a Python library (#317)
+- Mention of the server extension in the documentation (#304)
+- Text notebooks can be tested with `jupytext --execute notebook.md` (#303)
+- The default value of `as_version` in `jupytext.read` is `nbformat.NO_CONVERT`, as for `nbformat.read`
+- Jupytext tests are now included in sdist (#310)
+
+**BugFixes**
+
+- Fixed the usability of the `fmt` argument in `jupytext.read` (#312)
+- Fixed the download notebook error when `c.notebook_extensions` has a custom value (#318)
+- String delimiters in commented text are now ignored (#307)
+
+
+1.2.1 (2019-07-20)
+++++++++++++++++++++++
+
+**Improvements**
+
+- Added documentation on how to use Jupytext with JupyterLab 0.35 (#299)
+- and on using Jupytext with the pre-commit package manager (#292)
+- The `read` and `write` functions are easier to use (#292)
+
+**BugFixes**
+
+- Jupytext now ships the ``jupyterlab-jupytext`` extension in version 1.0.2. The version 1.0.1 erroneously introduces a `target_formats` metadata in the jupytext section, instead of `formats`, and works only after two clicks.
+
+
+1.2.0 (2019-07-18)
+++++++++++++++++++++++
+
+**Improvements**
+
+- New ``--execute`` option in Jupytext CLI (#231)
+- The ``--set-formats`` option in Jupytext CLI also triggers ``--sync``, allowing shorter commands.
+- ``jupytext``'s ``read`` and ``write`` functions can be used as drop-in replacements for ``nbformat``'s ones (#262).
+- ``jupytext --sync`` will now skip unpaired notebooks (#281).
+- The JupyterLab extension was updated. It now works on on text files (#213) and has a new option to include
+(or not) the metadata in the text representation of the notebook.
+- Jupytext's contents manager class is derived dynamically from the default CM class for compatibility with
+``jupyter_server`` (#270)
+- Removed dependency on ``mock`` and ``testfixtures``, thanks to Jean-Sebastien Dieu (#279)
+- Added support for `.markdown` extension (#288)
+
+**BugFixes**
+
+- The ``jupyterlab-jupytext`` extension shipped with the python package is in version 1.0.1, and is compatible only
+with JupyterLab >= 1.0. If you use an earlier version of JupyterLab, please install the version 0.19 of the extension
+with ``jupyter labextension install jupyterlab-jupytext@0.19`` (#276, #278)
+- Text files can be unpaired (#289)
+
+
+1.1.7 (2019-06-23)
+++++++++++++++++++++++
+
+**Improvements**
+
+- Added support for Scala notebook, by Tobias Frischholz (#253)
+- Added a getting started notebook for jupytext (and Binder), by Chris Holdgraf (#257)
+- The Markdown and R Markdown representations are now tested for all the languages
+- The Jupytext notebook extension also works when the notebook is a text file (#213)
+
+
+**BugFixes**
+
+- The Jupytext Menu in Jupyter Notebook is now compatible with ``jupyter_nbextensions_configurator`` (#178)
+- Entries in the Jupytext menu are updated when the menu is hovered on (#248)
+- Fixed link to ``.md`` files in the documentation (#255)
+
+
 1.1.6 (2019-06-11)
 ++++++++++++++++++++++
 

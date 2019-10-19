@@ -1,9 +1,9 @@
 """Determine notebook or cell language"""
 
-# Languages that may appear as magic instructions in Python notebooks
+# Jupyter magic commands that are also languages
 _JUPYTER_LANGUAGES = ['R', 'bash', 'sh', 'python', 'python2', 'python3', 'javascript', 'js', 'perl',
-                      'html', 'latex', 'markdown', 'pypy', 'ruby', 'script', 'svg', 'writefile',
-                      'matlab', 'octave', 'idl']
+                      'html', 'latex', 'markdown', 'pypy', 'ruby', 'script', 'svg',
+                      'matlab', 'octave', 'idl', 'spark', 'sql']
 
 # Supported file extensions (and languages)
 # Please add more languages here (and add a few tests) - see CONTRIBUTING.md
@@ -16,36 +16,43 @@ _SCRIPT_EXTENSIONS = {'.py': {'language': 'python', 'comment': '#'},
                       '.clj': {'language': 'clojure', 'comment': ';;'},
                       '.scm': {'language': 'scheme', 'comment': ';;'},
                       '.sh': {'language': 'bash', 'comment': '#'},
+                      '.ps1': {'language': 'powershell', 'comment': '#'},
                       '.q': {'language': 'q', 'comment': '/'},
                       '.m': {'language': 'matlab', 'comment': '%'},
                       '.pro': {'language': 'idl', 'comment': ';'},
                       '.js': {'language': 'javascript', 'comment': '//'},
-                      '.ts': {'language': 'typescript', 'comment': '//'}}
+                      '.ts': {'language': 'typescript', 'comment': '//'},
+                      '.scala': {'language': 'scala', 'comment': '//'},
+                      '.rs': {'language': 'rust', 'comment': '//'}}
 
 _COMMENT_CHARS = [_SCRIPT_EXTENSIONS[ext]['comment'] for ext in _SCRIPT_EXTENSIONS if
                   _SCRIPT_EXTENSIONS[ext]['comment'] != '#']
 
+_COMMENT = {_SCRIPT_EXTENSIONS[ext]['language']: _SCRIPT_EXTENSIONS[ext]['comment'] for ext in _SCRIPT_EXTENSIONS}
+_JUPYTER_LANGUAGES = set(_JUPYTER_LANGUAGES).union(_COMMENT.keys())
+
 
 def default_language_from_metadata_and_ext(metadata, ext):
     """Return the default language given the notebook metadata, and a file extension"""
-    default_from_ext = _SCRIPT_EXTENSIONS.get(ext, {}).get('language', 'python')
+    default_from_ext = _SCRIPT_EXTENSIONS.get(ext, {}).get('language')
 
     language = (metadata.get('jupytext', {}).get('main_language')
                 or metadata.get('kernelspec', {}).get('language')
                 or default_from_ext)
 
-    if language.startswith('C++'):
-        language = 'c++'
+    if language is None or language == 'R':
+        return language
 
-    return language
+    if language.startswith('C++'):
+        return 'c++'
+
+    return language.lower()
 
 
 def set_main_and_cell_language(metadata, cells, ext):
     """Set main language for the given collection of cells, and
     use magics for cells that use other languages"""
-    main_language = (metadata.get('kernelspec', {}).get('language') or
-                     metadata.get('jupytext', {}).get('main_language') or
-                     _SCRIPT_EXTENSIONS.get(ext, {}).get('language'))
+    main_language = default_language_from_metadata_and_ext(metadata, ext)
 
     if main_language is None:
         languages = {'python': 0.5}

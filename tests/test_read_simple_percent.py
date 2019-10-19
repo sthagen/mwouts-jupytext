@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from nbformat.v4.nbbase import new_notebook, new_code_cell
-from testfixtures import compare
+import os
+from nbformat.v4.nbbase import new_notebook, new_code_cell, new_markdown_cell, new_raw_cell
+from jupytext.compare import compare, compare_notebooks
 import jupytext
 
 
@@ -11,6 +12,9 @@ def test_read_simple_file(script="""# ---
 
 # %% [markdown]
 # This is a markdown cell
+
+# %% [md]
+# This is also a markdown cell
 
 # %% [raw]
 # This is a raw cell
@@ -30,27 +34,19 @@ def test_read_simple_file(script="""# ---
 7
 """):
     nb = jupytext.reads(script, 'py:percent')
-    assert len(nb.cells) == 6
-    assert nb.cells[0].cell_type == 'raw'
-    assert nb.cells[0].source == '---\ntitle: Simple file\n---'
-    assert nb.cells[1].cell_type == 'markdown'
-    assert nb.cells[1].source == 'This is a markdown cell'
-    assert nb.cells[2].cell_type == 'raw'
-    assert nb.cells[2].source == 'This is a raw cell'
-    assert nb.cells[3].cell_type == 'code'
-    assert nb.cells[3].source == '# This is a sub-cell'
-    assert nb.cells[3].metadata['title'] == 'sub-cell title'
-    assert nb.cells[4].cell_type == 'code'
-    assert nb.cells[4].source == '# This is a sub-sub-cell'
-    assert nb.cells[4].metadata['title'] == 'sub-sub-cell title'
-    assert nb.cells[5].cell_type == 'code'
-    compare(nb.cells[5].source, '''1 + 2 + 3 + 4
+    compare_notebooks(new_notebook(cells=[
+        new_raw_cell('---\ntitle: Simple file\n---'),
+        new_markdown_cell('This is a markdown cell'),
+        new_markdown_cell('This is also a markdown cell', metadata={'region_name': 'md'}),
+        new_raw_cell('This is a raw cell'),
+        new_code_cell('# This is a sub-cell', metadata={'title': 'sub-cell title', 'cell_depth': 1}),
+        new_code_cell('# This is a sub-sub-cell', metadata={'title': 'sub-sub-cell title', 'cell_depth': 2}),
+        new_code_cell('''1 + 2 + 3 + 4
 5
 6
 %%magic # this is a commented magic, not a cell
 
-7''')
-    assert nb.cells[5].metadata == {'title': 'And now a code cell'}
+7''', metadata={'title': 'And now a code cell'})]), nb)
 
     script2 = jupytext.writes(nb, 'py:percent')
     compare(script, script2)
@@ -206,3 +202,190 @@ from math import pi
     assert nb.cells[0].cell_type == 'markdown'
     assert nb.cells[1].cell_type == 'code'
     assert nb.cells[2].cell_type == 'markdown'
+
+
+def test_multiline_comments_in_markdown_1():
+    text = """# %% [markdown]
+'''
+a
+long
+cell
+'''
+"""
+    nb = jupytext.reads(text, 'py')
+    assert len(nb.cells) == 1
+    assert nb.cells[0].cell_type == 'markdown'
+    assert nb.cells[0].source == "a\nlong\ncell"
+    py = jupytext.writes(nb, 'py')
+    compare(py, text)
+
+
+def test_multiline_comments_in_markdown_2():
+    text = '''# %% [markdown]
+"""
+a
+long
+cell
+"""
+'''
+    nb = jupytext.reads(text, 'py')
+    assert len(nb.cells) == 1
+    assert nb.cells[0].cell_type == 'markdown'
+    assert nb.cells[0].source == "a\nlong\ncell"
+    py = jupytext.writes(nb, 'py')
+    compare(py, text)
+
+
+def test_multiline_comments_format_option():
+    text = '''# %% [markdown]
+"""
+a
+long
+cell
+"""
+'''
+    nb = new_notebook(cells=[new_markdown_cell("a\nlong\ncell")],
+                      metadata={'jupytext': {'cell_markers': '"""',
+                                             'notebook_metadata_filter': '-all'}})
+    py = jupytext.writes(nb, 'py:percent')
+    compare(py, text)
+
+
+def test_multiline_comments_in_raw_cell():
+    text = '''# %% [raw]
+"""
+some
+text
+"""
+'''
+    nb = jupytext.reads(text, 'py')
+    assert len(nb.cells) == 1
+    assert nb.cells[0].cell_type == 'raw'
+    assert nb.cells[0].source == "some\ntext"
+    py = jupytext.writes(nb, 'py')
+    compare(py, text)
+
+
+def test_multiline_comments_in_markdown_cell_no_line_return():
+    text = '''# %% [markdown]
+"""a
+long
+cell"""
+'''
+    nb = jupytext.reads(text, 'py')
+    assert len(nb.cells) == 1
+    assert nb.cells[0].cell_type == 'markdown'
+    assert nb.cells[0].source == "a\nlong\ncell"
+
+
+def test_multiline_comments_in_markdown_cell_is_robust_to_additional_cell_marker():
+    text = '''# %% [markdown]
+"""
+some text, and a fake cell marker
+# %% [raw]
+"""
+'''
+    nb = jupytext.reads(text, 'py')
+    assert len(nb.cells) == 1
+    assert nb.cells[0].cell_type == 'markdown'
+    assert nb.cells[0].source == "some text, and a fake cell marker\n# %% [raw]"
+    py = jupytext.writes(nb, 'py')
+    compare(py, text)
+
+
+def test_cell_markers_option_in_contents_manager(tmpdir):
+    tmp_ipynb = str(tmpdir.join('notebook.ipynb'))
+    tmp_py = str(tmpdir.join('notebook.py'))
+
+    cm = jupytext.TextFileContentsManager()
+    cm.root_dir = str(tmpdir)
+
+    nb = new_notebook(cells=[new_code_cell('1 + 1'), new_markdown_cell('a\nlong\ncell')],
+                      metadata={'jupytext': {'formats': 'ipynb,py:percent',
+                                             'notebook_metadata_filter': '-all',
+                                             'cell_markers': "'''"}})
+    cm.save(model=dict(type='notebook', content=nb), path='notebook.ipynb')
+
+    assert os.path.isfile(tmp_ipynb)
+    assert os.path.isfile(tmp_py)
+
+    with open(tmp_py) as fp:
+        text = fp.read()
+
+    compare(text, """# %%
+1 + 1
+
+# %% [markdown]
+'''
+a
+long
+cell
+'''
+""")
+
+    nb2 = jupytext.read(tmp_py)
+    compare_notebooks(nb, nb2)
+
+
+def test_default_cell_markers_in_contents_manager(tmpdir):
+    tmp_ipynb = str(tmpdir.join('notebook.ipynb'))
+    tmp_py = str(tmpdir.join('notebook.py'))
+
+    cm = jupytext.TextFileContentsManager()
+    cm.root_dir = str(tmpdir)
+    cm.default_cell_markers = "'''"
+
+    nb = new_notebook(cells=[new_code_cell('1 + 1'), new_markdown_cell('a\nlong\ncell')],
+                      metadata={'jupytext': {'formats': 'ipynb,py:percent',
+                                             'notebook_metadata_filter': '-all'}})
+    cm.save(model=dict(type='notebook', content=nb), path='notebook.ipynb')
+
+    assert os.path.isfile(tmp_ipynb)
+    assert os.path.isfile(tmp_py)
+
+    with open(tmp_py) as fp:
+        text = fp.read()
+
+    compare(text, """# %%
+1 + 1
+
+# %% [markdown]
+'''
+a
+long
+cell
+'''
+""")
+
+    nb2 = jupytext.read(tmp_py)
+    compare_notebooks(nb, nb2)
+
+
+def test_default_cell_markers_in_contents_manager_does_not_impact_light_format(tmpdir):
+    tmp_ipynb = str(tmpdir.join('notebook.ipynb'))
+    tmp_py = str(tmpdir.join('notebook.py'))
+
+    cm = jupytext.TextFileContentsManager()
+    cm.root_dir = str(tmpdir)
+    cm.default_cell_markers = "'''"
+
+    nb = new_notebook(cells=[new_code_cell('1 + 1'), new_markdown_cell('a\nlong\ncell')],
+                      metadata={'jupytext': {'formats': 'ipynb,py',
+                                             'notebook_metadata_filter': '-all'}})
+    cm.save(model=dict(type='notebook', content=nb), path='notebook.ipynb')
+
+    assert os.path.isfile(tmp_ipynb)
+    assert os.path.isfile(tmp_py)
+
+    with open(tmp_py) as fp:
+        text = fp.read()
+
+    compare(text, """1 + 1
+
+# a
+# long
+# cell
+""")
+
+    nb2 = jupytext.read(tmp_py)
+    compare_notebooks(nb, nb2)

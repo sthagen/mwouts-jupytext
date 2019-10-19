@@ -3,7 +3,7 @@ include *.md
 include *.txt
 include *.rst
 
-recursive-include jupyter-config *.json
-recursive-include jupytext/nbextension *.js
-
-graft packages
+graft tests
+prune tests\__pycache__
+global-exclude *population.ipynb
+global-exclude plotly_graphs.ipynb

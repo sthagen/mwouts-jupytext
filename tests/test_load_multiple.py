@@ -1,5 +1,4 @@
 import pytest
-import mock
 from tornado.web import HTTPError
 from nbformat.v4.nbbase import new_notebook
 import jupytext
@@ -20,7 +19,7 @@ def test_combine_same_version_ok(tmpdir):
 """)
 
     nb = new_notebook(metadata={'jupytext_formats': 'ipynb,py'})
-    jupytext.writef(nb, str(tmpdir.join(tmp_ipynb)))
+    jupytext.write(nb, str(tmpdir.join(tmp_ipynb)))
 
     cm = jupytext.TextFileContentsManager()
     cm.default_jupytext_formats = 'ipynb,py'
@@ -48,13 +47,11 @@ def test_combine_lower_version_raises(tmpdir):
 """)
 
     nb = new_notebook(metadata={'jupytext_formats': 'ipynb,py'})
-    jupytext.writef(nb, str(tmpdir.join(tmp_ipynb)))
+    jupytext.write(nb, str(tmpdir.join(tmp_ipynb)))
 
     cm = jupytext.TextFileContentsManager()
     cm.default_jupytext_formats = 'ipynb,py'
     cm.root_dir = str(tmpdir)
 
     with pytest.raises(HTTPError):
-        with mock.patch('jupytext.header.INSERT_AND_CHECK_VERSION_NUMBER',
-                        True):
-            cm.get(tmp_ipynb)
+        cm.get(tmp_ipynb)

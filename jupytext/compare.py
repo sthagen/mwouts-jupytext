@@ -1,8 +1,9 @@
 """Compare two Jupyter notebooks"""
 
 import re
+import json
+import difflib
 from copy import copy
-from testfixtures import compare
 from .cell_metadata import _IGNORE_CELL_METADATA
 from .header import _DEFAULT_NOTEBOOK_METADATA
 from .metadata_filter import filter_metadata
@@ -11,6 +12,29 @@ from .combine import combine_inputs_with_outputs
 from .formats import long_form_one_format
 
 _BLANK_LINE = re.compile(r'^\s*$')
+
+
+def _multilines(obj):
+    try:
+        lines = obj.splitlines()
+        return lines + [''] if obj.endswith('\n') else lines
+    except AttributeError:
+        # Remove the final blank space on Python 2.7
+        # return json.dumps(obj, indent=True, sort_keys=True).splitlines()
+        return [line.rstrip() for line in json.dumps(obj, indent=True, sort_keys=True).splitlines()]
+
+
+def compare(actual, expected, return_diff=False):
+    """Compare two strings, lists or dict-like objects"""
+    if actual != expected:
+        diff = '\n'.join(difflib.unified_diff(
+            _multilines(actual),
+            _multilines(expected),
+            'first', 'second', lineterm=''))
+        if return_diff:
+            return diff
+        raise AssertionError('\n' + diff)
+    return ''
 
 
 def filtered_cell(cell, preserve_outputs, cell_metadata_filter):
@@ -66,12 +90,8 @@ def same_content(ref_source, test_source, allow_removed_final_blank_line):
     return _BLANK_LINE.match(ref_source[-1])
 
 
-def compare_notebooks(notebook_expected,
-                      notebook_actual,
-                      fmt=None,
-                      allow_expected_differences=True,
-                      raise_on_first_difference=True,
-                      compare_outputs=False):
+def compare_notebooks(notebook_actual, notebook_expected, fmt=None, allow_expected_differences=True,
+                      raise_on_first_difference=True, compare_outputs=False):
     """Compare the two notebooks, and raise with a meaningful message
     that explains the differences, if any"""
     fmt = long_form_one_format(fmt)
@@ -151,12 +171,11 @@ def compare_notebooks(notebook_expected,
 
         # 3. bis test entire cell content
         if not same_content(ref_cell.source, test_cell.source, allow_removed_final_blank_line):
-            try:
-                compare(ref_cell.source, test_cell.source)
-            except AssertionError as error:
+            if ref_cell.source != test_cell.source:
                 if raise_on_first_difference:
+                    diff = compare(ref_cell.source, test_cell.source, return_diff=True)
                     raise NotebookDifference("Cell content differ on {} cell #{}: {}"
-                                             .format(test_cell.cell_type, i, str(error)))
+                                             .format(test_cell.cell_type, i, diff))
                 modified_cells.add(i)
 
         if not compare_outputs:
@@ -226,5 +245,5 @@ def test_round_trip_conversion(notebook, fmt, update, allow_expected_differences
     if update:
         combine_inputs_with_outputs(round_trip, notebook, fmt)
 
-    compare_notebooks(notebook, round_trip, fmt, allow_expected_differences,
+    compare_notebooks(round_trip, notebook, fmt, allow_expected_differences,
                       raise_on_first_difference=stop_on_first_error)

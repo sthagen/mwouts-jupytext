@@ -2,7 +2,7 @@
 
 import re
 from .stringparser import StringParser
-from .languages import _SCRIPT_EXTENSIONS
+from .languages import _SCRIPT_EXTENSIONS, _COMMENT
 
 # A magic expression is a line or cell or metakernel magic (#94, #61) escaped zero, or multiple times
 _MAGIC_RE = {_SCRIPT_EXTENSIONS[ext]['language']: re.compile(
@@ -14,27 +14,34 @@ _MAGIC_NOT_ESC_RE = {_SCRIPT_EXTENSIONS[ext]['language']: re.compile(
     r"^({0} |{0})*(%|%%|%%%)[a-zA-Z](.*){0}\s*noescape".format(
         _SCRIPT_EXTENSIONS[ext]['comment'])) for ext in _SCRIPT_EXTENSIONS}
 _LINE_CONTINUATION_RE = re.compile(r'.*\\\s*$')
-_COMMENT = {_SCRIPT_EXTENSIONS[ext]['language']: _SCRIPT_EXTENSIONS[ext]['comment'] for ext in _SCRIPT_EXTENSIONS}
+
+# Rust magics start with single ':' #351
+_MAGIC_RE['rust'] = re.compile(r"^(// |//)*:[a-zA-Z]")
+_MAGIC_FORCE_ESC_RE['rust'] = re.compile(r"^(// |//)*:[a-zA-Z](.*)//\s*escape")
+_MAGIC_FORCE_ESC_RE['rust'] = re.compile(r"^(// |//)*:[a-zA-Z](.*)//\s*noescape")
 
 # Commands starting with a question or exclamation mark have to be escaped
 _PYTHON_HELP_OR_BASH_CMD = re.compile(r"^(# |#)*(\?|!)\s*[A-Za-z]")
 
-_PYTHON_MAGIC_CMD = re.compile(r"^(# |#)*({})(\s|$)".format('|'.join(
+# A bash command not followed by an equal sign or a parenthesis is a magic command
+_PYTHON_MAGIC_CMD = re.compile(r"^(# |#)*({})($|\s$|\s[^=,])".format('|'.join(
     # posix
     ['cat', 'cp', 'mv', 'rm', 'rmdir', 'mkdir'] +
     # windows
     ['copy', 'ddir', 'echo', 'ls', 'ldir', 'mkdir', 'ren', 'rmdir'])))
 
+_SCRIPT_LANGUAGES = [_SCRIPT_EXTENSIONS[ext]['language'] for ext in _SCRIPT_EXTENSIONS]
+
 
 def is_magic(line, language, global_escape_flag=True):
     """Is the current line a (possibly escaped) Jupyter magic, and should it be commented?"""
-    if language in ['octave', 'matlab']:
+    if language in ['octave', 'matlab'] or language not in _SCRIPT_LANGUAGES:
         return False
-    if _MAGIC_FORCE_ESC_RE.get(language, _MAGIC_FORCE_ESC_RE['python']).match(line):
+    if _MAGIC_FORCE_ESC_RE[language].match(line):
         return True
-    if not global_escape_flag or _MAGIC_NOT_ESC_RE.get(language, _MAGIC_NOT_ESC_RE['python']).match(line):
+    if not global_escape_flag or _MAGIC_NOT_ESC_RE[language].match(line):
         return False
-    if _MAGIC_RE.get(language, _MAGIC_RE['python']).match(line):
+    if _MAGIC_RE[language].match(line):
         return True
     if language != 'python':
         return False
@@ -78,7 +85,8 @@ def uncomment_magic(source, language='python', global_escape_flag=True):
 
 
 _ESCAPED_CODE_START = {'.Rmd': re.compile(r"^(# |#)*```{.*}"),
-                       '.md': re.compile(r"^(# |#)*```")}
+                       '.md': re.compile(r"^(# |#)*```"),
+                       '.markdown': re.compile(r"^(# |#)*```")}
 _ESCAPED_CODE_START.update({ext: re.compile(
     r"^({0} |{0})*({0}|{0} )\+".format(_SCRIPT_EXTENSIONS[ext]['comment'])) for ext in _SCRIPT_EXTENSIONS})
 

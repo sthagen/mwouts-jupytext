@@ -1,5 +1,5 @@
 import pytest
-from testfixtures import compare
+from jupytext.compare import compare
 from nbformat.v4.nbbase import new_notebook, new_code_cell, new_markdown_cell
 import jupytext
 from jupytext.compare import compare_notebooks
@@ -27,4 +27,4 @@ def test_notebook_with_empty_cells(blank_cells):
     script = jupytext.writes(notebook, 'py')
     notebook2 = jupytext.reads(script, 'py')
 
-    compare_notebooks(notebook, notebook2)
+    compare_notebooks(notebook2, notebook)

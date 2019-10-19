@@ -1,7 +1,7 @@
 # Contributing to Jupytext
 
-Thanks for reading this! Contributions to this project are welcome.
-There are many ways you can contribute...
+Thanks for reading this. Contributions to this project are welcome.
+And there are many ways you can contribute...
 
 ## Spread the word
 
@@ -12,7 +12,7 @@ By the way, we're also interested to know how you use Jupytext! There may well b
 
 ## Improve the documentation
 
-You think the documentation could be improved? You've spotted a typo, or you think you can rephrase a paragraph to make is easier to follow? Please follow the _Edit on Github_ link, edit the document, and submit a pull request!
+You think the documentation could be improved? You've spotted a typo, or you think you can rephrase a paragraph to make is easier to follow? Please follow the _Edit on Github_ link, edit the document, and submit a pull request.
 
 ## Report an issue
 
@@ -22,6 +22,8 @@ Please let us know, and provide enough information so that we can reproduce the 
 ## Propose enhancements
 
 You want to submit an enhancement on Jupytext? Unless this is a small change, we usually prefer that you let us know beforehand: open an issue that describe the problem you want to solve.
+
+## Add support for another language
 
 A pull request for which you do not need to contact us in advance is the addition of a new language to Jupytext. In principle that should be easy - you would only have to:
 - document the language extension and comment by adding one line to `_SCRIPT_EXTENSIONS` in `languages.py`.
@@ -36,16 +38,18 @@ A pull request for which you do not need to contact us in advance is the additio
 Most of Jupytext's code is written in Python. To develop the Python part of Jupytext, you should clone Jupytext, then create a dedicated Python env:
 ```
 cd jupytext
-conda create -n jupytext-dev python=3.6 notebook mock pyyaml
+conda create -n jupytext-dev jupyterlab pyyaml
 conda activate jupytext-dev
-pip install -r requirements*.txt
+pip install -r requirements-dev.txt
 ```
 
-Tests are executed with `pytest` (install `pytest-xdist` and then run `pytest -n 3` if you want them to run in parallel). If you develop `jupytext` command line, you can install Jupytext in dev mode with
+Tests are executed with `pytest`. Install `pytest-xdist` to allow running the tests in parallel:
 ```
-pip install -e .
-````
-If you also need the Jupytext extensions for Jupyter, then it is better to build the package in full, and install it with
+pip install pytest-xdist
+pytest -n 5
+``` 
+
+Build the `jupytext` package and install it with
 ```
 python setup.py sdist bdist_wheel
 pip install dist/jupytext-XXX.tar.gz
@@ -53,7 +57,7 @@ pip install dist/jupytext-XXX.tar.gz
 
 ## Jupytext's extension for Jupyter Notebook
 
-Our extension for Jupyter Notebook adds a Jupytext entry to Jupyter Notebook. The code is found at `jupytext/nbextension/index.js`. Instructions to develop that extension are found [here](https://github.com/mwouts/jupytext_nbextension).
+Our extension for Jupyter Notebook adds a Jupytext entry to Jupyter Notebook Menu. The code is found at `jupytext/nbextension/index.js`. Instructions to develop that extension are at `jupytext/nbextension/README.md`.
 
 ## Jupytext's extension for JupyterLab
 

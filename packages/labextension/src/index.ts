@@ -1,4 +1,4 @@
-import { JupyterLab, JupyterLabPlugin } from "@jupyterlab/application";
+import { JupyterFrontEnd, JupyterFrontEndPlugin } from "@jupyterlab/application";
 
 import { ICommandPalette } from "@jupyterlab/apputils";
 
@@ -6,10 +6,10 @@ import { INotebookTracker } from "@jupyterlab/notebook";
 
 import { nbformat } from "@jupyterlab/coreutils";
 
-import "../style/index.css";
-
 interface JupytextSection {
   formats?: string;
+  notebook_metadata_filter?: string;
+  cell_metadata_filter?: string;
 }
 
 const JUPYTEXT_FORMATS = [
@@ -43,20 +43,46 @@ const JUPYTEXT_FORMATS = [
   }
 ];
 
+function get_selected_format(notebook_tracker: INotebookTracker): string {
+  if (!notebook_tracker.currentWidget) return null;
+
+  if (
+    !notebook_tracker.currentWidget.context.model.metadata.has(
+      "jupytext"
+    )
+  )
+    return "none";
+
+  const jupytext: JupytextSection = (notebook_tracker.currentWidget.context.model.metadata.get(
+    "jupytext"
+  ) as unknown) as JupytextSection;
+  if (!jupytext.formats) return "none";
+
+  const lang = notebook_tracker.currentWidget.context.model.metadata.get(
+    "language_info"
+  ) as nbformat.ILanguageInfoMetadata;
+  return lang
+    ? jupytext.formats.replace(
+      "," + lang.file_extension.substring(1) + ":",
+      ",auto:"
+    )
+    : jupytext.formats;
+};
+
 /**
  * Initialization data for the jupyterlab-jupytext extension.
  */
-const extension: JupyterLabPlugin<void> = {
+const extension: JupyterFrontEndPlugin<void> = {
   id: "jupyterlab-jupytext",
   autoStart: true,
   requires: [ICommandPalette, INotebookTracker],
   activate: (
-    app: JupyterLab,
+    app: JupyterFrontEnd,
     palette: ICommandPalette,
     notebook_tracker: INotebookTracker
   ) => {
-    console.log("JupyterLab extension jupyterlab-jupytext is activated");
-
+    console.log("JupyterLab extension jupyterlab-jupytext is activated");    
+    
     // Jupytext formats
     JUPYTEXT_FORMATS.forEach((args, rank) => {
       const formats: string = args["formats"];
@@ -65,33 +91,13 @@ const extension: JupyterLabPlugin<void> = {
         label: args["label"],
         isToggled: () => {
           if (!notebook_tracker.currentWidget) return false;
-
-          if (
-            !notebook_tracker.currentWidget.context.model.metadata.has(
-              "jupytext"
-            )
-          )
-            return formats == "none";
-
-          const jupytext: JupytextSection = (notebook_tracker.currentWidget.context.model.metadata.get(
-            "jupytext"
-          ) as unknown) as JupytextSection;
-          if (!jupytext.formats) return formats == "none";
-
-          const lang = notebook_tracker.currentWidget.context.model.metadata.get(
-            "language_info"
-          ) as nbformat.ILanguageInfoMetadata;
-          const jupytext_formats = lang
-            ? jupytext.formats.replace(
-                "," + lang.file_extension.substring(1) + ":",
-                ",auto:"
-              )
-            : jupytext.formats;
+          const jupytext_formats = get_selected_format(notebook_tracker)
 
           if (formats == "custom")
             return (
               jupytext_formats &&
               [
+                "none",
                 "ipynb,auto:light",
                 "ipynb,auto:percent",
                 "ipynb,auto:hydrogen",
@@ -102,7 +108,26 @@ const extension: JupyterLabPlugin<void> = {
 
           return jupytext_formats == formats;
         },
+        isEnabled: () => {
+          if (!notebook_tracker.currentWidget)
+              return false;
+          if (formats == "custom" || formats == "none")
+            return true;
+          const notebook_extension: string = notebook_tracker.currentWidget.context.path.split('.').pop();
+          if (notebook_extension == "ipynb")
+            return true;
+          if (notebook_extension == "md")
+            return formats == "ipynb,md";
+          if (notebook_extension == "Rmd")
+            return formats == "ipynb,Rmd";
+          return formats != "ipynb,md" && formats != "ipynb,Rmd";
+        },
         execute: () => {
+          const jupytext: JupytextSection = (notebook_tracker.currentWidget.context.model.metadata.get(
+            "jupytext"
+          ) as unknown) as JupytextSection;
+          const jupytext_formats = get_selected_format(notebook_tracker);
+          const target_format = jupytext_formats === formats ? "none": formats;
           console.log("Jupytext: executing command=" + command);
           if (formats == "custom") {
             alert(
@@ -111,11 +136,7 @@ const extension: JupyterLabPlugin<void> = {
             return;
           }
 
-          const jupytext: JupytextSection = (notebook_tracker.currentWidget.context.model.metadata.get(
-            "jupytext"
-          ) as unknown) as JupytextSection;
-
-          if (formats == "none") {
+          if (target_format == "none") {
             if (
               !notebook_tracker.currentWidget.context.model.metadata.has(
                 "jupytext"
@@ -134,21 +155,21 @@ const extension: JupyterLabPlugin<void> = {
             return;
           }
 
-          // set desired format
-          if (jupytext) jupytext.formats = formats;
+          // set the desired format
+          if (jupytext) jupytext.formats = target_format;
           else
             notebook_tracker.currentWidget.context.model.metadata.set(
               "jupytext",
-              { formats }
+              { formats: target_format }
             );
         }
       });
 
-      console.log("Jupytext: adding command=" + command + " with rank=" + rank);
-      palette.addItem({ command, rank, category: "Jupytext" });
+      console.log("Jupytext: adding command=" + command + " with rank=" + (rank + 1));
+      palette.addItem({ command, rank: rank + 2, category: "Jupytext" });
     });
 
-    // Jupytext README
+    // Jupytext's documentation
     palette.addItem({
       args: {
         text: "Jupytext Reference",
@@ -156,8 +177,77 @@ const extension: JupyterLabPlugin<void> = {
       },
       command: "help:open",
       category: "Jupytext",
-      rank: JUPYTEXT_FORMATS.length
+      rank: 0
     });
+
+    palette.addItem({
+      args: {
+        text: "Jupytext FAQ",
+        url: "https://jupytext.readthedocs.io/en/latest/faq.html"
+      },
+      command: "help:open",
+      category: "Jupytext",
+      rank: 1
+    });
+
+    // Metadata in text representation    
+    app.commands.addCommand("jupytext_metadata", {
+      label: "Include Metadata",
+      isToggled: () => {
+        if (!notebook_tracker.currentWidget)
+          return false;
+
+        if (!notebook_tracker.currentWidget.context.model.metadata.has("jupytext"))
+          return false;
+
+        const jupytext: JupytextSection = (notebook_tracker.currentWidget.context.model.metadata.get("jupytext") as unknown) as JupytextSection;
+
+        if (jupytext.notebook_metadata_filter === '-all')
+          return false;
+
+        return true;
+      },
+      isEnabled: () => {
+        if (!notebook_tracker.currentWidget)
+          return false;
+
+        if (!notebook_tracker.currentWidget.context.model.metadata.has("jupytext"))
+          return false;
+
+        const jupytext: JupytextSection = (notebook_tracker.currentWidget.context.model.metadata.get("jupytext") as unknown) as JupytextSection;
+
+        if (jupytext.notebook_metadata_filter === undefined)
+          return true;
+
+        if (jupytext.notebook_metadata_filter === '-all')
+          return true;
+
+        return false;
+      },
+      execute: () => {
+        console.log("Jupytext: toggling YAML header");
+        if (!notebook_tracker.currentWidget)
+          return;
+
+        if (!notebook_tracker.currentWidget.context.model.metadata.has("jupytext"))
+          return;
+
+        const jupytext: JupytextSection = (notebook_tracker.currentWidget.context.model.metadata.get("jupytext") as unknown) as JupytextSection;
+
+        if (jupytext.notebook_metadata_filter) {
+          delete jupytext.notebook_metadata_filter;
+          if (jupytext.cell_metadata_filter === '-all')
+            delete jupytext.cell_metadata_filter;
+          return
+        }
+
+        jupytext.notebook_metadata_filter = '-all'
+        if (jupytext.cell_metadata_filter === undefined)
+          jupytext.cell_metadata_filter = '-all';
+      }
+    });
+
+    palette.addItem({ command: "jupytext_metadata", rank: JUPYTEXT_FORMATS.length + 3, category: "Jupytext" });
   }
 };
 

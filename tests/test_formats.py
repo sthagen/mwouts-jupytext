@@ -1,5 +1,5 @@
 import pytest
-from testfixtures import compare
+from jupytext.compare import compare
 from nbformat.v4.nbbase import new_notebook
 import jupytext
 from jupytext.formats import guess_format, divine_format, read_format_from_metadata, rearrange_jupytext_metadata
@@ -24,6 +24,13 @@ def test_guess_format_percent(nb_file):
 def test_guess_format_sphinx(nb_file):
     with open(nb_file) as stream:
         assert guess_format(stream.read(), ext='.py')[0] == 'sphinx'
+
+
+def test_guess_format_hydrogen():
+    text = """# %%
+cat hello.txt
+"""
+    assert guess_format(text, ext='.py')[0] == 'hydrogen'
 
 
 def test_divine_format():

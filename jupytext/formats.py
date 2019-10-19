@@ -17,6 +17,7 @@ from .metadata_filter import metadata_filter_as_string
 from .stringparser import StringParser
 from .languages import _SCRIPT_EXTENSIONS, _COMMENT_CHARS
 from .pandoc import pandoc_version, is_pandoc_available
+from .magics import is_magic
 
 
 class JupytextFormatError(ValueError):
@@ -53,7 +54,17 @@ JUPYTEXT_FORMATS = \
             cell_exporter_class=MarkdownCellExporter,
             # Version 1.0 on 2018-08-31 - jupytext v0.6.0 : Initial version
             # Version 1.1 on 2019-03-24 - jupytext v1.1.0 : Markdown regions and cell metadata
-            current_version_number='1.1',
+            # Version 1.2 on 2019-09-21 - jupytext v1.3.0 : Raw regions are now marked with HTML comments
+            current_version_number='1.2',
+            min_readable_version_number='1.0'),
+
+        NotebookFormatDescription(
+            format_name='markdown',
+            extension='.markdown',
+            header_prefix='',
+            cell_reader_class=MarkdownCellReader,
+            cell_exporter_class=MarkdownCellExporter,
+            current_version_number='1.2',
             min_readable_version_number='1.0'),
 
         NotebookFormatDescription(
@@ -64,7 +75,8 @@ JUPYTEXT_FORMATS = \
             cell_exporter_class=RMarkdownCellExporter,
             # Version 1.0 on 2018-08-22 - jupytext v0.5.2 : Initial version
             # Version 1.1 on 2019-03-24 - jupytext v1.1.0 : Markdown regions and cell metadata
-            current_version_number='1.1',
+            # Version 1.2 on 2019-09-21 - jupytext v1.3.0 : Raw regions are now marked with HTML comments
+            current_version_number='1.2',
             min_readable_version_number='1.0')] + \
     [
         NotebookFormatDescription(
@@ -99,11 +111,12 @@ JUPYTEXT_FORMATS = \
             header_prefix=_SCRIPT_EXTENSIONS[ext]['comment'],
             cell_reader_class=DoublePercentScriptCellReader,
             cell_exporter_class=DoublePercentCellExporter,
+            # Version 1.3 on 2019-09-21 - jupytext v1.3.0: Markdown cells can be quoted using triple quotes #305
             # Version 1.2 on 2018-11-18 - jupytext v0.8.6: Jupyter magics are commented by default #126, #132
             # Version 1.1 on 2018-09-23 - jupytext v0.7.0rc1 : [markdown] and
             # [raw] for markdown and raw cells.
             # Version 1.0 on 2018-09-22 - jupytext v0.7.0rc0 : Initial version
-            current_version_number='1.2',
+            current_version_number='1.3',
             min_readable_version_number='1.1') for ext in _SCRIPT_EXTENSIONS] + \
     [
         NotebookFormatDescription(
@@ -161,7 +174,7 @@ def get_format_implementation(ext, format_name=None):
             formats_for_extension.append(fmt.format_name)
 
     if formats_for_extension:
-        if ext == '.md' and format_name == 'pandoc':
+        if ext in ['.md', '.markdown'] and format_name == 'pandoc':
             raise JupytextFormatError('Please install pandoc>=2.7.2')
 
         raise JupytextFormatError("Format '{}' is not associated to extension '{}'. "
@@ -175,7 +188,7 @@ def read_metadata(text, ext):
     ext = '.' + ext.split('.')[-1]
     lines = text.splitlines()
 
-    if ext in ['.md', '.Rmd']:
+    if ext in ['.md', '.markdown', '.Rmd']:
         comment = ''
     else:
         comment = _SCRIPT_EXTENSIONS.get(ext, {}).get('comment', '#')
@@ -207,8 +220,8 @@ def guess_format(text, ext):
     # Or a Sphinx-gallery script?
     if ext in _SCRIPT_EXTENSIONS:
         comment = _SCRIPT_EXTENSIONS[ext]['comment']
+        language = _SCRIPT_EXTENSIONS[ext]['language']
         twenty_hash = ''.join(['#'] * 20)
-        magic_re = re.compile(r'^(%|%%|%%%)[a-zA-Z]')
         double_percent_re = re.compile(r'^{}( %%|%%)$'.format(comment))
         double_percent_and_space_re = re.compile(r'^{}( %%|%%)\s'.format(comment))
         nbconvert_script_re = re.compile(r'^{}( <codecell>| In\[[0-9 ]*\]:?)'.format(comment))
@@ -233,7 +246,7 @@ def guess_format(text, ext):
                     nbconvert_script_re.match(line):
                 double_percent_count += 1
 
-            if magic_re.match(line):
+            if not line.startswith(comment) and is_magic(line, language):
                 magic_command_count += 1
 
             if line.startswith(twenty_hash) and ext == '.py':
@@ -265,7 +278,7 @@ def guess_format(text, ext):
         if rspin_comment_count >= 1:
             return 'spin', {}
 
-    if ext == '.md':
+    if ext in ['.md', '.markdown']:
         for line in lines:
             if line.startswith(':::'):  # Pandoc div
                 return 'pandoc', {}
@@ -346,7 +359,7 @@ def format_name_for_ext(metadata, ext, cm_default_formats=None, explicit_default
             if (not explicit_default) or fmt.get('format_name'):
                 return fmt.get('format_name')
 
-    if (not explicit_default) or ext in ['.Rmd', '.md']:
+    if (not explicit_default) or ext in ['.md', '.markdown', '.Rmd']:
         return None
 
     return get_format_implementation(ext).format_name
@@ -500,7 +513,8 @@ def short_form_one_format(jupytext_format):
         fmt = jupytext_format['prefix'] + '/' + fmt
 
     if jupytext_format.get('format_name'):
-        if jupytext_format['extension'] not in ['.md', '.Rmd'] or jupytext_format['format_name'] == 'pandoc':
+        if jupytext_format['extension'] not in ['.md', '.markdown', '.Rmd'] or \
+                jupytext_format['format_name'] == 'pandoc':
             fmt = fmt + ':' + jupytext_format['format_name']
 
     return fmt

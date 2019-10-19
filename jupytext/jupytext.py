@@ -4,6 +4,7 @@ import os
 import io
 import sys
 import logging
+import warnings
 from copy import copy, deepcopy
 from nbformat.v4.rwbase import NotebookReader, NotebookWriter
 from nbformat.v4.nbbase import new_notebook, new_code_cell, NotebookNode
@@ -37,6 +38,12 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
                 self.fmt.setdefault(opt, metadata['jupytext'][opt])
             if opt in self.fmt:
                 metadata.setdefault('jupytext', {}).setdefault(opt, self.fmt[opt])
+
+        # Is this format the same as that documented in the YAML header? If so, we want to know the format version
+        file_fmt = metadata.get('jupytext', {}).get('text_representation', {})
+        if self.fmt.get('extension') == file_fmt.get('extension') and \
+                self.fmt.get('format_name') == file_fmt.get('format_name'):
+            self.fmt.update(file_fmt)
 
         # rST to md conversion should happen only once
         if metadata.get('jupytext', {}).get('rst2md') is True:
@@ -118,7 +125,7 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
             cells=nb.cells)
 
         metadata = nb.metadata
-        default_language = default_language_from_metadata_and_ext(metadata, self.implementation.extension)
+        default_language = default_language_from_metadata_and_ext(metadata, self.implementation.extension) or 'python'
         self.update_fmt_with_notebook_options(nb.metadata)
 
         if 'main_language' in metadata.get('jupytext', {}):
@@ -160,10 +167,12 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
             text.extend([''] * lines_to_next_cell)
 
             # two blank lines between markdown cells in Rmd when those do not have explicit region markers
-            if self.ext in ['.Rmd', '.md'] and not cell.is_code():
+            if self.ext in ['.md', '.markdown', '.Rmd'] and not cell.is_code():
                 if (i + 1 < len(cell_exporters) and not cell_exporters[i + 1].is_code() and
-                        not texts[i][0].startswith('<!-- #region') and
-                        not texts[i + 1][0].startswith('<!-- #region') and
+                        not texts[i][0].startswith('<!-- #') and
+                        not texts[i + 1][0].startswith('<!-- #') and
+                        not texts[i][0].startswith('```') and
+                        not texts[i + 1][0].startswith('```') and
                         (not split_at_heading or not (texts[i + 1] and texts[i + 1][0].startswith('#')))):
                     text.append('')
 
@@ -187,9 +196,17 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
         return '\n'.join(header + lines)
 
 
-def reads(text, fmt, as_version=4, **kwargs):
-    """Read a notebook from a string"""
-    fmt = copy(fmt)
+def reads(text, fmt, as_version=nbformat.NO_CONVERT, **kwargs):
+    """
+    Read a notebook from a string
+
+    :param text: the text representation of the notebook
+    :param fmt: (optional) the jupytext format like `md`, `py:percent`, ...
+    :param as_version: see nbformat.reads
+    :param kwargs: (not used) additional parameters for nbformat.reads
+    :return: the notebook
+    """
+    fmt = copy(fmt) if fmt else divine_format(text)
     fmt = long_form_one_format(fmt)
     ext = fmt['extension']
 
@@ -218,33 +235,54 @@ def reads(text, fmt, as_version=4, **kwargs):
     return notebook
 
 
-def read(file_or_stream, fmt, as_version=4, **kwargs):
-    """Read a notebook from a file"""
-    fmt = long_form_one_format(fmt)
-    if fmt['extension'] == '.ipynb':
-        notebook = nbformat.read(file_or_stream, as_version, **kwargs)
-        rearrange_jupytext_metadata(notebook.metadata)
-        return notebook
+def read(fp, as_version=nbformat.NO_CONVERT, fmt=None, **kwargs):
+    """"
+    Read a notebook from a file name or a file object
 
-    return reads(file_or_stream.read(), fmt, **kwargs)
+    :param fp: a file name or a file object
+    :param as_version: see nbformat.read
+    :param fmt: (optional) the jupytext format like `md`, `py:percent`, ...
+    :param kwargs: (not used) additional parameters for nbformat.read
+    :return: the notebook
+    """
+    if as_version != nbformat.NO_CONVERT and not isinstance(as_version, int):
+        raise TypeError("Second argument 'as_version' should be either nbformat.NO_CONVERT, or an integer.")
 
-
-def readf(nb_file, fmt=None):
-    """Read a notebook from the file with given name"""
-    if nb_file == '-':
+    if fp == '-':
         text = sys.stdin.read()
-        fmt = fmt or divine_format(text)
         return reads(text, fmt)
 
-    _, ext = os.path.splitext(nb_file)
-    fmt = copy(fmt or {})
-    fmt.update({'extension': ext})
-    with io.open(nb_file, encoding='utf-8') as stream:
-        return read(stream, fmt, as_version=4)
+    if not hasattr(fp, 'read'):
+        # Treat fp as a file name
+        fp = str(fp)
+        _, ext = os.path.splitext(fp)
+        fmt = copy(fmt or {})
+        if not isinstance(fmt, dict):
+            fmt = long_form_one_format(fmt)
+        fmt.update({'extension': ext})
+        with io.open(fp, encoding='utf-8') as stream:
+            return read(stream, as_version=as_version, fmt=fmt, **kwargs)
+
+    if fmt is not None:
+        fmt = long_form_one_format(fmt)
+        if fmt['extension'] == '.ipynb':
+            notebook = nbformat.read(fp, as_version, **kwargs)
+            rearrange_jupytext_metadata(notebook.metadata)
+            return notebook
+
+    return reads(fp.read(), fmt, **kwargs)
 
 
 def writes(notebook, fmt, version=nbformat.NO_CONVERT, **kwargs):
-    """Write a notebook to a string"""
+    """"
+    Write a notebook to a file name or a file object
+
+    :param notebook: the notebook
+    :param fmt: the jupytext format like `md`, `py:percent`, ...
+    :param version: see nbformat.writes
+    :param kwargs: (not used) additional parameters for nbformat.writes
+    :return: the text representation of the notebook
+    """
     metadata = deepcopy(notebook.metadata)
     rearrange_jupytext_metadata(metadata)
     fmt = copy(fmt)
@@ -277,30 +315,46 @@ def writes(notebook, fmt, version=nbformat.NO_CONVERT, **kwargs):
     return writer.writes(notebook, metadata)
 
 
-def write(notebook, file_or_stream, fmt, version=nbformat.NO_CONVERT, **kwargs):
-    """Write a notebook to a file"""
-    # Python 2 compatibility
-    text = u'' + writes(notebook, fmt, version, **kwargs)
-    file_or_stream.write(text)
-    # Add final newline #165
-    if not text.endswith(u'\n'):
-        file_or_stream.write(u'\n')
+def write(nb, fp, version=nbformat.NO_CONVERT, fmt=None, **kwargs):
+    """"
+    Write a notebook to a file name or a file object
 
-
-def writef(notebook, nb_file, fmt=None):
-    """Write a notebook to the file with given name"""
-    if nb_file == '-':
-        write(notebook, sys.stdout, fmt)
+    :param nb: the notebook
+    :param fp: a file name or a file object
+    :param version: see nbformat.write
+    :param fmt: (optional if fp is a file name) the jupytext format like `md`, `py:percent`, ...
+    :param kwargs: (not used) additional parameters for nbformat.write
+    """
+    if fp == '-':
+        # Use sys.stdout.buffer when possible, and explicit utf-8 encoding, cf. #331
+        content = writes(nb, version=version, fmt=fmt, **kwargs)
+        try:
+            # Python 3
+            sys.stdout.buffer.write(content.encode('utf-8'))
+        except AttributeError:
+            sys.stdout.write(content.encode('utf-8'))
         return
 
-    _, ext = os.path.splitext(nb_file)
-    fmt = copy(fmt or {})
-    fmt = long_form_one_format(fmt, update={'extension': ext})
+    if not hasattr(fp, 'write'):
+        # Treat fp as a file name
+        fp = str(fp)
+        _, ext = os.path.splitext(fp)
+        fmt = copy(fmt or {})
+        fmt = long_form_one_format(fmt, update={'extension': ext})
+        create_prefix_dir(fp, fmt)
 
-    create_prefix_dir(nb_file, fmt)
+        with io.open(fp, 'w', encoding='utf-8') as stream:
+            write(nb, stream, version=version, fmt=fmt, **kwargs)
+            return
+    else:
+        assert fmt is not None, "'fmt' argument in jupytext.write is mandatory unless fp is a file name"
 
-    with io.open(nb_file, 'w', encoding='utf-8') as stream:
-        write(notebook, stream, fmt)
+    content = writes(nb, version=version, fmt=fmt, **kwargs)
+    if isinstance(content, bytes):
+        content = content.decode('utf8')
+    fp.write(content)
+    if not content.endswith(u'\n'):
+        fp.write(u'\n')
 
 
 def create_prefix_dir(nb_file, fmt):
@@ -310,3 +364,23 @@ def create_prefix_dir(nb_file, fmt):
         if not os.path.isdir(nb_dir):
             logging.log(logging.WARNING, "[jupytext] creating missing directory %s", nb_dir)
             os.makedirs(nb_dir)
+
+
+def readf(nb_file, fmt=None):  # pragma: no cover
+    """Read a notebook from the file with given name"""
+    warnings.warn(
+        "readf is deprecated. Please use read instead, and pass the fmt "
+        "argument with an explicit fmt=... (see https://github.com/mwouts/jupytext/issues/262)",
+        DeprecationWarning)
+
+    return read(fp=nb_file, fmt=fmt)
+
+
+def writef(notebook, nb_file, fmt=None):  # pragma: no cover
+    """Write a notebook to the file with given name"""
+    warnings.warn(
+        'writef is deprecated. Please use write instead, and pass the fmt '
+        'argument with an explicit fmt=... (see https://github.com/mwouts/jupytext/issues/262)',
+        DeprecationWarning)
+
+    return write(nb=notebook, fp=nb_file, fmt=fmt)

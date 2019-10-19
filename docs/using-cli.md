@@ -5,15 +5,14 @@
 The package provides a `jupytext` script for command line conversion between the various notebook extensions:
 
 ```bash
-jupytext --to py notebook.ipynb                 # create a notebook.py file in the light format
-jupytext --to py:percent notebook.ipynb         # create a notebook.py file in the double percent format
-jupytext --to py:percent --comment-magics false notebook.ipynb   # create a notebook.py file in the double percent format, and do not comment magic commands
-jupytext --to markdown notebook.ipynb           # create a notebook.md file
-jupytext --output script.py notebook.ipynb      # create a script.py file
+jupytext --to py notebook.ipynb                 # convert notebook.ipynb to a .py file
+jupytext --to py:percent notebook.ipynb         # convert notebook.ipynb to a .py file in the double percent format
+jupytext --to py:percent --comment-magics false notebook.ipynb   # same as above + do not comment magic commands
+jupytext --to markdown notebook.ipynb           # convert notebook.ipynb to a .md file
+jupytext --output script.py notebook.ipynb      # convert notebook.ipynb to a script.py file
 
-jupytext --to notebook notebook.py              # overwrite notebook.ipynb (remove outputs)
-jupytext --to notebook --update notebook.py     # update notebook.ipynb (preserve outputs)
-jupytext --to ipynb notebook1.md notebook2.py   # overwrite notebook1.ipynb and notebook2.ipynb
+jupytext --to notebook notebook.py              # convert notebook.py to an .ipynb file with no outputs
+jupytext --update --to notebook notebook.py     # update the input cells in the .ipynb file and preserve outputs and metadata
 
 jupytext --to md --test notebook.ipynb          # Test round trip conversion
 
@@ -21,12 +20,41 @@ jupytext --to md --output - notebook.ipynb      # display the markdown version o
 jupytext --from ipynb --to py:percent           # read ipynb from stdin and write double percent script on stdout
 ```
 
-Jupytext has a `--sync` mode that updates all the paired representations of a notebook based on the file that was last modified. You may also find useful to `--pipe` the text representation of a notebook into tools like `black`:
+Jupytext has a `--sync` mode that updates all the paired representations of a notebook based on timestamps: 
+```bash
+jupytext --set-formats ipynb,py notebook.ipynb  # Turn notebook.ipynb into a paired ipynb/py notebook
+jupytext --sync notebook.ipynb                    # Update whichever of notebook.ipynb/notebook.py is outdated
+```
+
+For convenience, when creating a notebook from text you can execute it:
+```bash
+jupytext --set-kernel - notebook.md             # set a kernel metadata on the given notebook that points to the current python executable 
+jupytext --to notebook --execute notebook.md    # convert notebook.md to an .ipynb file and run it 
+```
+
+If you wanted to convert a collection of Markdown files to paired notebooks, and execute them in the current Python environment, you could run:
+```bash
+jupytext --set-formats ipynb,md --execute *.md 
+```
+
+You may also find useful to `--pipe` the text representation of a notebook into tools like `black`:
 ```bash
 jupytext --sync --pipe black notebook.ipynb    # read most recent version of notebook, reformat with black, save
 ```
 
-The `jupytext` command accepts many arguments. Use the `--set-formats` and the `--update-metadata` arguments to edit the pairing information or more generally the notebook metadata. Execute `jupytext --help` to access the documentation.
+Execute `jupytext --help` to access the full documentation.
+
+
+## Notebook and cell metadata filters
+
+If you want to preserve (or filter out) certain notebook or cell metadata, change the value of either `notebook_metadata_filter` or `cell_metadata_filter` with the `--update-metadata` option. For instance, if you wish to convert an `.ipynb` document to a `.md` file and preserve all the notebook metadata in that document, run
+
+```bash
+jupytext --to md --update-metadata '{"jupytext": {"notebook_metadata_filter":"all"}}' notebook.ipynb
+```
+
+Read more on the default and possible values for the metadata filters in [this section](using-server.md#metadata-filtering).
+
 
 ## Jupytext as a Git pre-commit hook
 
@@ -53,6 +81,41 @@ git reset HEAD **/*.ipynb
 ```
 Note that these hooks do not update the `.ipynb` notebook when you pull. Make sure to either run `jupytext` in the other direction, or to use our paired notebook and our contents manager for Jupyter. Also, Jupytext does not offer a merge driver. If a conflict occurs, solve it on the text representation and then update or recreate the `.ipynb` notebook. Or give a try to nbdime and its [merge driver](https://nbdime.readthedocs.io/en/stable/vcs.html#merge-driver).
 
+## Using Jupytext with the pre-commit package manager
+
+Using Jupytext with the [pre-commit package manager](https://pre-commit.com/) is another option. You could add the following to your `.pre-commit-config.yaml` file:
+```
+repos:
+-   repo: local
+    hooks:
+    - id: jupytext
+      name: jupytext
+      entry: jupytext --to md
+      files: .ipynb
+      language: python
+```
+
+Here is another `.pre-commit-config.yaml` example that uses the --pre-commit mode of Jupytext to convert all `.ipynb` notebooks to `py:light` representation and unstage the `.ipynb` files before committing.
+```
+repos:
+  -
+    repo: local
+    hooks:
+      -
+        id: jupytext
+        name: jupytext
+        entry: jupytext --from ipynb --to py:light --pre-commit
+        pass_filenames: false
+        language: python
+      -
+        id: unstage-ipynb
+        name: unstage-ipynb
+        entry: git reset HEAD **/*.ipynb
+        pass_filenames: false
+        language: system
+
+```
+
 ## Testing the round-trip conversion
 
 Representing Jupyter notebooks as scripts requires a solid round trip conversion. You don't want your notebooks (nor your scripts) to be modified because you are converting them to the other form. Our test suite includes a few hundred tests to ensure that round trip conversion is safe.
@@ -73,21 +136,3 @@ Please note that
 metadata to be added back to the script. Remove the filter if you want to store Jupytext's settings, or the kernel information, in the text file.
 - Cell metadata are available in the `light` and `percent` formats, as well as in the Markdown and R Markdown formats. R scripts in `spin` format support cell metadata for code cells only. Sphinx Gallery scripts in `sphinx` format do not support cell metadata.
 - By default, a few cell metadata are not included in the text representation of the notebook. And only the most standard notebook metadata are exported. Learn more on this in the sections for [notebook specific](using-server.html#per-notebook-configuration) and [global settings](using-server.html#metadata-filtering) for metadata filtering.
-
-## Reading notebooks in Python
-
-You can also manipulate notebooks in a Python shell or script using Jupytext's main functions:
-
-```python
-# Read a notebook from a file. Format can be any of 'py', 'md', 'jl:percent', ...
-readf(nb_file, fmt=None)
-
-# Read a notebook from a string. Here, format should contain at least the file extension.
-reads(text, fmt)
-
-# Return the text representation for a notebook in the desired format.
-writes(notebook, fmt)
-
-# Write a notebook to a file in the desired format.
-writef(notebook, nb_file, fmt=None)
-```

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from nbformat.v4.nbbase import new_markdown_cell, new_code_cell, new_notebook
-from testfixtures import compare
+from jupytext.compare import compare
 import jupytext
 from jupytext.compare import compare_notebooks
+from .utils import skip_if_dict_is_not_ordered
 
 
 def test_read_simple_file(pynb="""# ---
@@ -667,12 +668,55 @@ def test_notebook_one_blank_line_before_first_markdown_cell(script="""
             assert lines[-1]
 
 
+def test_read_markdown_cell_with_triple_quote_307(
+        script="""# This script test that commented triple quotes '''
+# do not impede the correct identification of Markdown cells
+
+# Here is Markdown cell number 2 '''
+"""):
+    notebook = jupytext.reads(script, 'py')
+    assert len(notebook.cells) == 2
+    assert notebook.cells[0].cell_type == 'markdown'
+    assert notebook.cells[0].source == """This script test that commented triple quotes '''
+do not impede the correct identification of Markdown cells"""
+    assert notebook.cells[1].cell_type == 'markdown'
+    assert notebook.cells[1].source == "Here is Markdown cell number 2 '''"
+
+    script2 = jupytext.writes(notebook, 'py')
+    compare(script2, script)
+
+
+@skip_if_dict_is_not_ordered
+def test_read_explicit_markdown_cell_with_triple_quote_307(
+        script="""# {{{ {"special": "metadata", "cell_type": "markdown"}
+# some text '''
+# }}}
+
+print('hello world')
+
+# {{{ {"special": "metadata", "cell_type": "markdown"}
+# more text '''
+# }}}
+"""):
+    notebook = jupytext.reads(script, 'py')
+    assert len(notebook.cells) == 3
+    assert notebook.cells[0].cell_type == 'markdown'
+    assert notebook.cells[0].source == "some text '''"
+    assert notebook.cells[1].cell_type == 'code'
+    assert notebook.cells[1].source == "print('hello world')"
+    assert notebook.cells[2].cell_type == 'markdown'
+    assert notebook.cells[2].source == "more text '''"
+
+    script2 = jupytext.writes(notebook, 'py')
+    compare(script2, script)
+
+
 def test_round_trip_markdown_cell_with_magic():
     notebook = new_notebook(cells=[new_markdown_cell('IPython has magic commands like\n%quickref')],
                             metadata={'jupytext': {'main_language': 'python'}})
     text = jupytext.writes(notebook, 'py')
     notebook2 = jupytext.reads(text, 'py')
-    compare_notebooks(notebook, notebook2)
+    compare_notebooks(notebook2, notebook)
 
 
 def test_round_trip_python_with_js_cell():
@@ -682,7 +726,7 @@ notebook.nbextensions.install_nbextension('jupytext.js', user=True)'''),
 Jupyter.utils.load_extensions('jupytext')''')])
     text = jupytext.writes(notebook, 'py')
     notebook2 = jupytext.reads(text, 'py')
-    compare_notebooks(notebook, notebook2)
+    compare_notebooks(notebook2, notebook)
 
 
 def test_round_trip_python_with_js_cell_no_cell_metadata():
@@ -694,4 +738,4 @@ Jupyter.utils.load_extensions('jupytext')''')],
                                                    'cell_metadata_filter': '-all'}})
     text = jupytext.writes(notebook, 'py')
     notebook2 = jupytext.reads(text, 'py')
-    compare_notebooks(notebook, notebook2)
+    compare_notebooks(notebook2, notebook)

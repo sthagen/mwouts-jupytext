@@ -56,7 +56,7 @@ To disable global pairing for an individual notebook, set formats to a single fo
 
 ## Metadata filtering
 
-You can specify which metadata to include or exclude in the text files created by Jupytext by setting `c.ContentsManager.default_notebook_metadata_filter` (notebook metadata) and `c.ContentsManager.default_cell_metadata_filter` (cell metadata). They accept a string of comma separated keywords. A minus sign `-` in font of a keyword means exclusion.
+You can specify which metadata to include or exclude in the text files created by Jupytext by setting `c.ContentsManager.default_notebook_metadata_filter` (notebook metadata) and `c.ContentsManager.default_cell_metadata_filter` (cell metadata). They accept a string of comma separated keywords. A minus sign `-` in front of a keyword means exclusion.
 
 Suppose you want to keep all the notebook metadata but `widgets` and `varInspector` in the YAML header. For cell metadata, you want to allow `ExecuteTime` and `autoscroll`, but not `hide_output`. You can set
 ```python
@@ -77,11 +77,12 @@ NB: All these global options (and more) are documented [here](https://github.com
 When saving a paired notebook using Jupytext's contents manager, Jupyter updates both the `.ipynb` and its text representation. The text representation can be edited outside of Jupyter. When the notebook is refreshed in Jupyter, the input cells are read from the text file, and the output cells from the `.ipynb` file.
 
 It is possible (and convenient) to leave the notebook open in Jupyter while you edit its text representation. However, you don't want that the two editors save the notebook simultaneously. To avoid this:
-- deactivate Jupyter's autosave, by toggling the `"Autosave notebook"` menu entry (or run `%autosave 0` in a cell of the notebook)
+- deactivate Jupyter's autosave, by either toggling the `"Autosave notebook"` menu entry or run `%autosave 0` in a cell of the notebook (see in the [faq](https://github.com/mwouts/jupytext/blob/master/docs/faq.md#jupyter-warns-me-that-the-file-has-changed-on-disk) how to deactivate autosave permanently)
 - and refresh the notebook when you switch back from the editor to Jupyter.
 
 In case you forgot to refresh, and saved the Jupyter notebook while the text representation had changed, no worries: Jupyter will ask you which version you want to keep:
-![Notebook changed](https://gist.githubusercontent.com/mwouts/13de42d8bb514e4acf6481c580feffd0/raw/fcbcd3c3fc1ec4a74669381b53753f9f783e10da/notebook_changed.png)
+
+![](https://github.com/mwouts/jupytext-screenshots/raw/master/JupytextDocumentation/NotebookChanged.png)
 
 When that occurs, please choose the version in which you made the latest changes. And give a second look to our advice to deactivate the autosaving of notebooks in Jupyter.
 
@@ -91,11 +92,12 @@ With Jupytext's contents manager for Jupyter, scripts and Markdown documents gai
 
 By default, Jupyter Notebook open scripts and Markdown documents as notebooks. If you want to open them with the text editor, select the document and click on _edit_:
 
-![Open as text](https://user-images.githubusercontent.com/29915202/53228364-42265400-3681-11e9-812d-46168c6e398c.png)
+![](https://github.com/mwouts/jupytext-screenshots/raw/master/JupytextDocumentation/OpenAsText.png)
+
 
 In JupyterLab this is slightly different. Scripts and Markdown document also have a notebook icon. But they open as text by default. Open them as notebooks with the  _Open With -> Notebook_ context menu (available in JupyterLab 0.35 and above):
 
-![](https://gist.githubusercontent.com/mwouts/13de42d8bb514e4acf6481c580feffd0/raw/403b53ac5097446a15ea664579ba44cd1badcc57/ContextMenuLab.png)
+![](https://github.com/mwouts/jupytext-screenshots/raw/master/JupytextDocumentation/ContextMenuLab.png)
 
 If do not want to classify scripts or Markdown documents as notebooks, please use the `notebook_extension` option. For instance, if you want to get the notebook icon only for `.ipynb` and `.Rmd` files, set
 

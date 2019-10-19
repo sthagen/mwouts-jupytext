@@ -1,5 +1,5 @@
-from nbformat.v4.nbbase import new_code_cell, new_raw_cell, new_markdown_cell
-from testfixtures import compare
+from nbformat.v4.nbbase import new_code_cell, new_raw_cell, new_markdown_cell, new_notebook
+from jupytext.compare import compare, compare_notebooks
 import jupytext
 from jupytext.combine import combine_inputs_with_outputs
 
@@ -18,9 +18,25 @@ x = np.arange(0,1,eps)
 y = np.abs(x)-.5
 ```
 
+This is
+a Markdown cell
+
 ```
-# this is a raw cell
+# followed by a code cell with no language info
 ```
+
+```
+# another code cell
+
+
+# with two blank lines
+```
+
+And the same markdown cell continues
+
+<!-- #raw -->
+this is a raw cell
+<!-- #endraw -->
 
 ```R
 ls()
@@ -46,9 +62,26 @@ cat(stringi::stri_rand_lipsum(3), sep='\n\n')
                         'execution_count': None,
                         'source': 'x = np.arange(0,1,eps)\ny = np.abs(x)-.5',
                         'outputs': []},
+                       {'cell_type': 'markdown',
+                        'metadata': {},
+                        'source': '''This is
+a Markdown cell
+
+```
+# followed by a code cell with no language info
+```
+
+```
+# another code cell
+
+
+# with two blank lines
+```
+
+And the same markdown cell continues'''},
                        {'cell_type': 'raw',
                         'metadata': {},
-                        'source': '# this is a raw cell'},
+                        'source': 'this is a raw cell'},
                        {'cell_type': 'code',
                         'metadata': {},
                         'execution_count': None,
@@ -65,11 +98,86 @@ cat(stringi::stri_rand_lipsum(3), sep='\n\n')
     compare(markdown, markdown2)
 
 
+def test_read_md_and_markdown_regions(markdown="""Some text
+
+<!-- #md -->
+A
+
+
+long
+cell
+<!-- #endmd -->
+
+<!-- #markdown -->
+Another
+
+
+long
+cell
+<!-- #endmarkdown -->
+"""):
+    nb = jupytext.reads(markdown, 'md')
+    assert nb.metadata['jupytext']['main_language'] == 'python'
+    compare(nb.cells, [new_markdown_cell('Some text'),
+                       new_markdown_cell("""A
+
+
+long
+cell""", metadata={'region_name': 'md'}),
+                       new_markdown_cell("""Another
+
+
+long
+cell""", metadata={'region_name': 'markdown'})])
+
+    markdown2 = jupytext.writes(nb, 'md')
+    compare(markdown, markdown2)
+
+
+def test_read_mostly_R_markdown_file(markdown="""```R
+ls()
+```
+
+```R
+cat(stringi::stri_rand_lipsum(3), sep='\n\n')
+```
+"""):
+    nb = jupytext.reads(markdown, 'md')
+    assert nb.metadata['jupytext']['main_language'] == 'R'
+    compare(nb.cells, [{'cell_type': 'code',
+                        'metadata': {},
+                        'execution_count': None,
+                        'source': 'ls()',
+                        'outputs': []},
+                       {'cell_type': 'code',
+                        'metadata': {},
+                        'execution_count': None,
+                        'source': "cat(stringi::stri_rand_lipsum(3), sep='\n\n')",
+                        'outputs': []}])
+
+    markdown2 = jupytext.writes(nb, 'md')
+    compare(markdown, markdown2)
+
+
+def test_read_markdown_file_no_language(markdown="""```
+ls
+```
+
+```
+echo 'Hello World'
+```
+"""):
+    nb = jupytext.reads(markdown, 'md')
+    markdown2 = jupytext.writes(nb, 'md')
+    compare(markdown, markdown2)
+
+
 def test_read_julia_notebook(markdown="""```julia
 1 + 1
 ```
 """):
     nb = jupytext.reads(markdown, 'md')
+    assert nb.metadata['jupytext']['main_language'] == 'julia'
     assert len(nb.cells) == 1
     assert nb.cells[0].cell_type == 'code'
     markdown2 = jupytext.writes(nb, 'md')
@@ -116,14 +224,34 @@ b = 2
     compare(markdown, markdown2)
 
 
-def test_raw_cell_with_metadata(markdown="""```key="value"
+def test_raw_cell_with_metadata(markdown="""<!-- #raw {"key": "value"} -->
 raw content
-```
+<!-- #endraw -->
 """):
     nb = jupytext.reads(markdown, 'md')
     compare(nb.cells[0], new_raw_cell(source='raw content', metadata={'key': 'value'}))
     markdown2 = jupytext.writes(nb, 'md')
     compare(markdown, markdown2)
+
+
+def test_read_raw_cell_markdown_version_1_1(markdown="""---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .md
+      format_name: markdown
+      format_version: '1.1'
+      jupytext_version: 1.1.0
+---
+
+```key="value"
+raw content
+```
+"""):
+    nb = jupytext.reads(markdown, 'md')
+    compare(nb.cells[0], new_raw_cell(source='raw content', metadata={'key': 'value'}))
+    md2 = jupytext.writes(nb, 'md')
+    assert "format_version: '1.1'" not in md2
 
 
 def test_markdown_cell_with_metadata(markdown="""<!-- #region {"key": "value"} -->
@@ -257,3 +385,104 @@ nor be split into two pieces."""
     compare(text, nb.cells[0].source)
     assert nb.cells[0].cell_type == 'markdown'
     assert len(nb.cells) == 1
+
+
+def test_read_markdown_idl(no_jupytext_version_number, text='''---
+jupyter:
+  kernelspec:
+    display_name: IDL [conda env:gdl] *
+    language: IDL
+    name: conda-env-gdl-idl
+---
+
+# A sample IDL Markdown notebook
+
+```idl
+a = 1
+```
+'''):
+    nb = jupytext.reads(text, 'md')
+    assert len(nb.cells) == 2
+    assert nb.cells[1].cell_type == 'code'
+    assert nb.cells[1].source == 'a = 1'
+
+    text2 = jupytext.writes(nb, 'md')
+    compare(text, text2)
+
+
+def test_read_markdown_IDL(no_jupytext_version_number, text='''---
+jupyter:
+  kernelspec:
+    display_name: IDL [conda env:gdl] *
+    language: IDL
+    name: conda-env-gdl-idl
+---
+
+# A sample IDL Markdown notebook
+
+```IDL
+a = 1
+```
+'''):
+    nb = jupytext.reads(text, 'md')
+    assert len(nb.cells) == 2
+    assert nb.cells[1].cell_type == 'code'
+    assert nb.cells[1].source == 'a = 1'
+
+    text2 = jupytext.writes(nb, 'md')
+    compare(text.replace('```IDL', '```idl'), text2)
+
+
+def test_inactive_cell(text='''```python active="md"
+# This becomes a raw cell in Jupyter
+```
+''', expected=new_notebook(
+    cells=[new_raw_cell('# This becomes a raw cell in Jupyter',
+                        metadata={'active': 'md'})])):
+    nb = jupytext.reads(text, 'md')
+    compare_notebooks(nb, expected)
+    text2 = jupytext.writes(nb, 'md')
+    compare(text2, text)
+
+
+def test_inactive_cell_using_tag(text='''```python tags=["active-md"]
+# This becomes a raw cell in Jupyter
+```
+''', expected=new_notebook(
+    cells=[new_raw_cell('# This becomes a raw cell in Jupyter',
+                        metadata={'tags': ['active-md']})])):
+    nb = jupytext.reads(text, 'md')
+    compare_notebooks(nb, expected)
+    text2 = jupytext.writes(nb, 'md')
+    compare(text2, text)
+
+
+def test_inactive_cell_using_noeval(text='''This is text
+
+```python .noeval
+# This is python code.
+# It should not become a code cell
+```
+'''):
+    expected = new_notebook(cells=[new_markdown_cell(text[:-1])])
+    nb = jupytext.reads(text, 'md')
+    compare_notebooks(nb, expected)
+    text2 = jupytext.writes(nb, 'md')
+    compare(text2, text)
+
+
+def test_noeval_followed_by_code_works(text='''```python .noeval
+# Not a code cell in Jupyter
+```
+
+```python
+1 + 1
+```
+''', expected=new_notebook(cells=[new_markdown_cell('''```python .noeval
+# Not a code cell in Jupyter
+```'''),
+                                  new_code_cell('1 + 1')])):
+    nb = jupytext.reads(text, 'md')
+    compare_notebooks(nb, expected)
+    text2 = jupytext.writes(nb, 'md')
+    compare(text2, text)

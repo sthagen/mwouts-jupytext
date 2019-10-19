@@ -1,6 +1,11 @@
 flake8
-pytest
-pytest-cov==2.5.1
+pytest>=3.6
+pytest-cov
 codecov
 notebook
 jupyter_client
+nbconvert
+setuptools
+
+# Python 2
+pathlib

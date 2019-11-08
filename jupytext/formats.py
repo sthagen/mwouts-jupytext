@@ -15,7 +15,7 @@ from .cell_to_text import MarkdownCellExporter, RMarkdownCellExporter, \
     HydrogenCellExporter, SphinxGalleryCellExporter
 from .metadata_filter import metadata_filter_as_string
 from .stringparser import StringParser
-from .languages import _SCRIPT_EXTENSIONS, _COMMENT_CHARS
+from .languages import _SCRIPT_EXTENSIONS, _COMMENT_CHARS, same_language
 from .pandoc import pandoc_version, is_pandoc_available
 from .magics import is_magic
 
@@ -54,7 +54,8 @@ JUPYTEXT_FORMATS = \
             cell_exporter_class=MarkdownCellExporter,
             # Version 1.0 on 2018-08-31 - jupytext v0.6.0 : Initial version
             # Version 1.1 on 2019-03-24 - jupytext v1.1.0 : Markdown regions and cell metadata
-            # Version 1.2 on 2019-09-21 - jupytext v1.3.0 : Raw regions are now marked with HTML comments
+            # Version 1.2 on 2019-09-21 - jupytext v1.3.0 : Raw regions are now encoded with HTML comments (#321)
+            # and by default, cell metadata use the key=value representation (#347)
             current_version_number='1.2',
             min_readable_version_number='1.0'),
 
@@ -75,7 +76,8 @@ JUPYTEXT_FORMATS = \
             cell_exporter_class=RMarkdownCellExporter,
             # Version 1.0 on 2018-08-22 - jupytext v0.5.2 : Initial version
             # Version 1.1 on 2019-03-24 - jupytext v1.1.0 : Markdown regions and cell metadata
-            # Version 1.2 on 2019-09-21 - jupytext v1.3.0 : Raw regions are now marked with HTML comments
+            # Version 1.2 on 2019-09-21 - jupytext v1.3.0 : Raw regions are now encoded with HTML comments (#321)
+            # and by default, cell metadata use the key=value representation in raw and markdown cells (#347)
             current_version_number='1.2',
             min_readable_version_number='1.0')] + \
     [
@@ -85,6 +87,7 @@ JUPYTEXT_FORMATS = \
             header_prefix=_SCRIPT_EXTENSIONS[ext]['comment'],
             cell_reader_class=LightScriptCellReader,
             cell_exporter_class=LightScriptCellExporter,
+            # Version 1.5 on 2019-10-19 - jupytext v1.3.0 - Cell metadata represented as key=value by default
             # Version 1.4 on 2019-03-30 - jupytext v1.1.0 - custom cell markers allowed
             # Version 1.3 on 2018-09-22 - jupytext v0.7.0rc0 : Metadata are
             # allowed for all cell types (and then include 'cell_type')
@@ -93,7 +96,7 @@ JUPYTEXT_FORMATS = \
             # Version 1.1 on 2018-08-25 - jupytext v0.6.0 : Cells separated
             # with one blank line #38
             # Version 1.0 on 2018-08-22 - jupytext v0.5.2 : Initial version
-            current_version_number='1.4',
+            current_version_number='1.5',
             min_readable_version_number='1.1') for ext in _SCRIPT_EXTENSIONS] + \
     [
         NotebookFormatDescription(
@@ -112,6 +115,7 @@ JUPYTEXT_FORMATS = \
             cell_reader_class=DoublePercentScriptCellReader,
             cell_exporter_class=DoublePercentCellExporter,
             # Version 1.3 on 2019-09-21 - jupytext v1.3.0: Markdown cells can be quoted using triple quotes #305
+            # and cell metadata are represented as key=value by default
             # Version 1.2 on 2018-11-18 - jupytext v0.8.6: Jupyter magics are commented by default #126, #132
             # Version 1.1 on 2018-09-23 - jupytext v0.7.0rc1 : [markdown] and
             # [raw] for markdown and raw cells.
@@ -126,7 +130,7 @@ JUPYTEXT_FORMATS = \
             cell_reader_class=HydrogenCellReader,
             cell_exporter_class=HydrogenCellExporter,
             # Version 1.2 on 2018-12-14 - jupytext v0.9.0: same as percent - only magics are not commented by default
-            current_version_number='1.2',
+            current_version_number='1.3',
             min_readable_version_number='1.1') for ext in _SCRIPT_EXTENSIONS] + \
     [
         NotebookFormatDescription(
@@ -221,7 +225,7 @@ def guess_format(text, ext):
     if ext in _SCRIPT_EXTENSIONS:
         comment = _SCRIPT_EXTENSIONS[ext]['comment']
         language = _SCRIPT_EXTENSIONS[ext]['language']
-        twenty_hash = ''.join(['#'] * 20)
+        twenty_hash_re = re.compile(r'^#( |)#{19,}\s*$')
         double_percent_re = re.compile(r'^{}( %%|%%)$'.format(comment))
         double_percent_and_space_re = re.compile(r'^{}( %%|%%)\s'.format(comment))
         nbconvert_script_re = re.compile(r'^{}( <codecell>| In\[[0-9 ]*\]:?)'.format(comment))
@@ -249,7 +253,7 @@ def guess_format(text, ext):
             if not line.startswith(comment) and is_magic(line, language):
                 magic_command_count += 1
 
-            if line.startswith(twenty_hash) and ext == '.py':
+            if twenty_hash_re.match(line) and ext == '.py':
                 twenty_hash_count += 1
 
             if line.startswith("#'") and ext in ['.R', '.r']:
@@ -530,7 +534,7 @@ def short_form_multiple_formats(jupytext_formats):
 
 
 _VALID_FORMAT_INFO = ['extension', 'format_name', 'suffix', 'prefix']
-_BINARY_FORMAT_OPTIONS = ['comment_magics', 'split_at_heading', 'rst2md']
+_BINARY_FORMAT_OPTIONS = ['comment_magics', 'split_at_heading', 'rst2md', 'cell_metadata_json', 'use_runtools']
 _VALID_FORMAT_OPTIONS = _BINARY_FORMAT_OPTIONS + ['notebook_metadata_filter', 'cell_metadata_filter', 'cell_markers']
 
 
@@ -559,8 +563,33 @@ def validate_one_format(jupytext_format):
 
 
 def auto_ext_from_metadata(metadata):
-    """Script extension from kernel information"""
+    """Script extension from notebook metadata"""
     auto_ext = metadata.get('language_info', {}).get('file_extension')
+
+    if auto_ext is None:
+        language = metadata.get('kernelspec', {}).get('language') or metadata.get('jupytext', {}).get('main_language')
+        if language:
+            for ext in _SCRIPT_EXTENSIONS:
+                if same_language(language, _SCRIPT_EXTENSIONS[ext]['language']):
+                    auto_ext = ext
+                    break
+
     if auto_ext == '.r':
         return '.R'
+
     return auto_ext
+
+
+def check_auto_ext(fmt, metadata, option):
+    """Raise a ValueError when the .auto extension cannot be determined"""
+    if fmt['extension'] != '.auto':
+        return
+
+    auto_ext = auto_ext_from_metadata(metadata)
+    if auto_ext:
+        fmt['extension'] = auto_ext
+        return
+
+    raise ValueError("The notebook does not have a 'language_info' metadata. "
+                     "Please replace 'auto' with the actual language extension in the {} option (currently {})."
+                     .format(option, short_form_one_format(fmt)))

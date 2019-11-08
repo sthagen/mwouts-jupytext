@@ -180,7 +180,7 @@ def test_error_not_same_ext(tmp_ipynb, tmpdir):
 
 
 def test_error_no_action(tmp_ipynb):
-    with pytest.raises(ValueError, match="Please select an action"):
+    with pytest.raises(ValueError, match="Please provide one of"):
         jupytext([tmp_ipynb])
 
 
@@ -648,7 +648,7 @@ def test_sync(nb_file, tmpdir, capsys):
 
 
 @requires_pandoc
-@pytest.mark.parametrize('nb_file', list_notebooks('ipynb_py', skip='(Notebook with|flavors)'))
+@pytest.mark.parametrize('nb_file', list_notebooks('ipynb_py', skip='(Notebook with|flavors|305)'))
 def test_sync_pandoc(nb_file, tmpdir, capsys):
     tmp_ipynb = str(tmpdir.join('notebook.ipynb'))
     tmp_md = str(tmpdir.join('notebook.md'))
@@ -919,7 +919,7 @@ def test_convert_and_update_preserves_notebook(nb_file, fmt, tmpdir):
 
     nb_org = read(nb_file)
     nb_now = read(tmp_ipynb)
-    compare(nb_org, nb_now)
+    compare(nb_now, nb_org)
 
 
 def test_incorrect_notebook_causes_early_exit(tmpdir):
@@ -977,8 +977,16 @@ def test_339_py(tmpdir):
 cat = 42
 """)
 
-    def erroneous_is_magic(line, language, comment_magics):
+    def erroneous_is_magic(line, language, comment_magics, explicitly_code):
         return 'cat' in line
 
     with mock.patch('jupytext.magics.is_magic', erroneous_is_magic):
         assert jupytext([tmp_py, '--to', 'ipynb', '--test-strict']) != 0
+
+
+def test_339_require_to(tmpdir):
+    """Test that the `--to` argument is asked for when a `--test` command is provided"""
+    tmp_py = str(tmpdir.join('test.py'))
+
+    with pytest.raises(ValueError, match='--to'):
+        jupytext([tmp_py, '--test-strict'])

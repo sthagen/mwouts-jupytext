@@ -8,9 +8,10 @@ import subprocess
 import argparse
 import json
 from copy import copy
+from tempfile import NamedTemporaryFile
 from .jupytext import read, reads, write, writes
 from .formats import _VALID_FORMAT_OPTIONS, _BINARY_FORMAT_OPTIONS, check_file_version
-from .formats import long_form_one_format, long_form_multiple_formats, short_form_one_format, auto_ext_from_metadata
+from .formats import long_form_one_format, long_form_multiple_formats, short_form_one_format, check_auto_ext
 from .header import recursive_update
 from .paired_paths import paired_paths, base_path, full_path, InconsistentPath
 from .combine import combine_inputs_with_outputs
@@ -49,55 +50,77 @@ def str2bool(value):
 
 def parse_jupytext_args(args=None):
     """Command line parser for jupytext"""
+
+    class RawTextArgumentDefaultsHelpFormatter(argparse.RawTextHelpFormatter,
+                                               argparse.ArgumentDefaultsHelpFormatter):
+        """Keep the raw formatting in command line help, plus show the default values"""
+
     parser = argparse.ArgumentParser(
         description='Jupyter notebooks as markdown documents, Julia, Python or R scripts',
-        formatter_class=argparse.RawTextHelpFormatter)
+        formatter_class=RawTextArgumentDefaultsHelpFormatter)
 
     # Input
     parser.add_argument('notebooks',
-                        help='One or more notebook(s). Notebook is read from stdin when this argument is empty',
+                        help='One or more notebook(s).\n'
+                             'Notebook is read from stdin when this argument\n'
+                             'is empty.',
                         nargs='*')
     parser.add_argument('--from',
                         dest='input_format',
-                        help='Optional: jupytext format for the input(s). '
-                             'Inferred from the file extension and content when missing.')
+                        help='Jupytext format for the input(s). Inferred from the\n'
+                             'file extension and content when missing.')
     parser.add_argument('--pre-commit',
                         action='store_true',
-                        help='Ignore the notebook argument, and instead apply Jupytext on the notebooks found '
-                             'in the git index, which have an extension that matches the (optional) --from argument.')
+                        help='Ignore the notebook argument, and instead apply Jupytext\n'
+                             'on the notebooks found in the git index, which have an\n'
+                             'extension that matches the (optional) --from argument.\n')
     # Destination format & act on metadata
     parser.add_argument('--to',
-                        help="Destination format: either one of 'notebook', 'markdown', 'rmarkdown', 'script', any "
-                             "valid notebook extension, or a full format '[prefix_path//][suffix.]ext[:format_name]")
+                        help="Destination format: either one of 'notebook', 'markdown',\n"
+                             "'rmarkdown', 'script', any valid notebook extension, or a\n"
+                             "full format description, i.e.\n"
+                             "'[prefix_path//][suffix.]ext[:format_name]")
     parser.add_argument('--format-options', '--opt',
                         action='append',
-                        help='Set format options with e.g. --opt comment_magics=true '
-                             '--opt notebook_metadata_filter=-kernelspec.')
+                        help='Set format options with e.g.\n'
+                             '    --opt comment_magics=true\n'
+                             '    --opt notebook_metadata_filter=-kernelspec.\n')
     parser.add_argument('--set-formats',
                         type=str,
-                        help='Set jupytext.formats metadata to the given value. Use this to activate pairing on a '
-                             'notebook, with e.g. --set-formats ipynb,py:light. The --set-formats option also triggers '
-                             'the creation/update of all paired files')
+                        help='Set jupytext.formats metadata to the given value. Use this to\n'
+                             'activate pairing on a notebook, with e.g.\n'
+                             '    --set-formats ipynb,py:light.\n'
+                             'The --set-formats option also triggers the creation/update\n'
+                             'of all paired files')
     parser.add_argument('--set-kernel', '-k',
                         type=str,
-                        help="Set the kernel with the given name on the notebook. Use '--set-kernel -' to set "
-                             "a kernel matching the current environment on Python notebooks, and matching the "
-                             "notebook language otherwise "
-                             "(get the list of available kernels with 'jupyter kernelspec list')")
+                        help="Set the kernel with the given name on the notebook.\n"
+                             "Use\n"
+                             "    --set-kernel -\n"
+                             "to set a kernel matching the current\n"
+                             "environment on Python notebooks, and matching the notebook\n"
+                             "language otherwise (get the list of available kernels with\n"
+                             "'jupyter kernelspec list')")
     parser.add_argument('--update-metadata',
                         default={},
                         type=json.loads,
-                        help='Update the notebook metadata with the desired dictionary. Argument must be given in JSON '
-                             'format. For instance, if you want to activate a pairing in the generated file, '
-                             """use e.g. '{"jupytext":{"formats":"ipynb,py:light"}}'""")
+                        help='Update the notebook metadata with the desired dictionary.\n'
+                             'Argument must be given in JSON format. For instance, if you\n'
+                             'want to activate a pairing in the generated file, use e.g.\n'
+                             """    --update-metadata '{"jupytext":{"formats":"ipynb,py:light"}}'\n"""
+                             "See also the '--opt' and '--set-formats' options for other ways\n"
+                             "to operate on the Jupytext metadata."
+                        )
 
     # Destination file
     parser.add_argument('-o', '--output',
-                        help="Destination file. Defaults to the original file, with prefix/suffix/extension changed"
-                             "according to the destination format. Use '-' to print the notebook on stdout.")
+                        help="Destination file. Defaults to the original file,\n"
+                             "with prefix/suffix/extension changed according to\n"
+                             "the destination format.\n"
+                             "Use '-' to print the notebook on stdout.")
     parser.add_argument('--update', action='store_true',
-                        help='Preserve the output cells when the destination notebook is a .ipynb file '
-                             'that already exists')
+                        help='Preserve the output cells when the destination\n'
+                             'notebook is a .ipynb file that already exists')
 
     # Action: convert(default)/version/list paired paths/sync/apply/test
     action = parser.add_mutually_exclusive_group()
@@ -105,46 +128,62 @@ def parse_jupytext_args(args=None):
                         action='store_true',
                         help="Show jupytext's version number and exit")
     action.add_argument('--paired-paths', '-p',
-                        help='List the locations of the alternative representations for this notebook.',
+                        help='List the locations of the alternative representations\n'
+                             'for this notebook.',
                         action='store_true')
     action.add_argument('--sync', '-s',
-                        help='Synchronize the content of the paired representations of the given notebook. '
-                             'Input cells are taken from the file that was last modified, and outputs are read '
-                             'from the ipynb file, if present.',
+                        help='Synchronize the content of the paired representations of\n'
+                             'the given notebook. Input cells are taken from the file that\n'
+                             'was last modified, and outputs are read from the ipynb file,\n'
+                             'if present.',
                         action='store_true')
     action.add_argument('--warn-only', '-w',
                         action='store_true',
-                        help='Only issue a warning and continue processing other notebooks when the conversion of a '
-                             'given notebook fails')
+                        help='Only issue a warning and continue processing other notebooks\n'
+                             'when the conversion of a given notebook fails')
     action.add_argument('--test',
                         action='store_true',
-                        help='Test that notebook is stable under a round trip conversion, up to the expected changes')
+                        help='Test that notebook is stable under a round trip conversion,\n'
+                             'up to the expected changes')
     action.add_argument('--test-strict',
                         action='store_true',
-                        help='Test that notebook is strictly stable under a round trip conversion')
+                        help='Test that notebook is strictly stable under a round trip\n'
+                             'conversion')
     parser.add_argument('--stop', '-x',
                         dest='stop_on_first_error',
                         action='store_true',
-                        help='In --test mode, stop on first round trip conversion error, and report stack traceback')
+                        help='In --test mode, stop on first round trip conversion error, and report\n'
+                             'stack traceback')
 
     # Pipe notebook inputs into other commands
     parser.add_argument('--pipe',
                         action='append',
-                        help='Pipe the text representation of the notebook into another program, and read the'
-                             'notebook back. For instance, reformat your notebook with:'
-                             "    jupytext notebook.ipynb --pipe black"
-                             'If you want to reformat it and sync the paired representation, execute:'
-                             "    jupytext notebook.ipynb --sync --pipe black")
+                        help='Pipe the text representation (in format --pipe-fmt) of the notebook into\n'
+                             'another program, and read the notebook back. For instance, reformat\n'
+                             'your notebook with:\n'
+                             '    jupytext notebook.ipynb --pipe black\n'
+                             'If you want to reformat it and sync the paired representation, execute:\n'
+                             '    jupytext notebook.ipynb --sync --pipe black\n'
+                             'In case the program that you want to execute does not accept pipes, use {}\n'
+                             'as a placeholder for a temporary file name into which jupytext will\n'
+                             'write the text representation of the notebook, e.g.:\n'
+                             "    jupytext notebook.ipynb --pipe 'black {}'\n")
     parser.add_argument('--check',
                         action='append',
-                        help='Pipe the text representation of the notebook into another program, and test that '
-                             'the returned value is non zero. For instance, test that your notebook is pep8 compliant '
-                             'with:'
-                             "    jupytext notebook.ipynb --check flake8")
+                        help='Pipe the text representation (in format --pipe-fmt) of the notebook into\n'
+                             'another program, and test that the returned value is non zero. For\n'
+                             'instance, test that your notebook is pep8 compliant with:\n'
+                             '    jupytext notebook.ipynb --check flake8\n'
+                             'or run pytest on your notebook with:\n'
+                             '    jupytext notebook.ipynb --check pytest\n'
+                             'In case the program that you want to execute does not accept pipes, use {}\n'
+                             'as a placeholder for a temporary file name into which jupytext will\n'
+                             'write the text representation of the notebook, e.g.:\n'
+                             "    jupytext notebook.ipynb --check 'pytest {}'\n")
     parser.add_argument('--pipe-fmt',
                         default='auto:percent',
-                        help='The format in which the notebook should be piped to other programs, when using the '
-                             '--pipe and/or --check commands.')
+                        help='The format in which the notebook should be piped to other programs,\n'
+                             'when using the --pipe and/or --check commands.')
 
     # Execute the notebook
     parser.add_argument('--execute',
@@ -154,7 +193,8 @@ def parse_jupytext_args(args=None):
     parser.add_argument('--quiet', '-q',
                         action='store_true',
                         default=False,
-                        help='Quiet mode: do not comment about files being updated or created')
+                        help='Quiet mode: do not comment about files being updated\n'
+                             'or created')
 
     return parser.parse_args(args)
 
@@ -196,12 +236,15 @@ def jupytext(args=None):
         print_paired_paths(args.notebooks[0], args.input_format)
         return 1
 
+    if (args.test or args.test_strict) and not args.to and not args.output and not args.sync:
+        raise ValueError('Please provide one of --to, --output or --sync')
+
     if not args.to and not args.output and not args.sync \
             and not args.pipe and not args.check \
-            and not args.test and not args.test_strict \
             and not args.update_metadata and not args.set_kernel \
             and not args.execute:
-        raise ValueError('Please select an action')
+        raise ValueError('Please provide one of --to, --output, --sync, --pipe, '
+                         '--check, --update_metadata, --set-kernel or --execute')
 
     if args.output and len(args.notebooks) != 1:
         raise ValueError('Please input a single notebook when using --output')
@@ -271,11 +314,7 @@ def jupytext_single_file(nb_file, args, log):
     # Compute actual extension when using script/auto, and update nb_dest if necessary
     dest_fmt = args.to
     if dest_fmt and dest_fmt['extension'] == '.auto':
-        auto_ext = auto_ext_from_metadata(notebook.metadata)
-        if not auto_ext:
-            raise ValueError('The notebook has no language information. '
-                             'Please provide an explicit script extension.')
-        dest_fmt['extension'] = auto_ext
+        check_auto_ext(dest_fmt, notebook.metadata, '--to')
         if not args.output and nb_file != '-':
             nb_dest = full_path(base_path(nb_file, args.input_format), dest_fmt)
 
@@ -332,12 +371,13 @@ def jupytext_single_file(nb_file, args, log):
 
     # II. ### Apply commands onto the notebook ###
     # Pipe the notebook into the desired commands
+    prefix = None if nb_file == '-' else os.path.splitext(os.path.basename(nb_file))[0]
     for cmd in args.pipe or []:
-        notebook = pipe_notebook(notebook, cmd, args.pipe_fmt)
+        notebook = pipe_notebook(notebook, cmd, args.pipe_fmt, prefix=prefix)
 
     # and/or test the desired commands onto the notebook
     for cmd in args.check or []:
-        pipe_notebook(notebook, cmd, args.pipe_fmt, update=False)
+        pipe_notebook(notebook, cmd, args.pipe_fmt, update=False, prefix=prefix)
 
     # Execute the notebook
     if args.execute:
@@ -369,7 +409,7 @@ def jupytext_single_file(nb_file, args, log):
                     notebook = reads(dest_text, fmt=dest_fmt)
 
                 text = writes(notebook, fmt=fmt)
-                compare(org_text, text)
+                compare(text, org_text)
 
         except (NotebookDifference, AssertionError) as err:
             sys.stdout.write('{}: {}'.format(nb_file, str(err)))
@@ -540,30 +580,73 @@ def load_paired_notebook(notebook, fmt, nb_file, log):
     return notebook, latest_inputs, latest_outputs
 
 
-def pipe_notebook(notebook, command, fmt='py:percent', update=True):
+def exec_command(command, input=None):
+    """Execute the desired command, and pipe the given input into it"""
+    if not isinstance(command, list):
+        command = command.split(' ')
+    process = subprocess.Popen(command,
+                               **(dict(stdout=subprocess.PIPE, stdin=subprocess.PIPE) if input is not None else {}))
+    out, err = process.communicate(input=input)
+
+    if process.returncode:
+        sys.stderr.write("The command {} exited with code {}{}"
+                         .format(command, process.returncode, ': {}'.format(err or out) if err or out else ''))
+        raise SystemExit(process.returncode)
+
+    return out
+
+
+def pipe_notebook(notebook, command, fmt='py:percent', update=True, prefix=None):
     """Pipe the notebook, in the desired representation, to the given command. Update the notebook
     with the returned content if desired."""
     if command in ['black', 'flake8', 'autopep8']:
         command = command + ' -'
+    elif command in ['pytest', 'unittest']:
+        command = command + ' {}'
 
-    fmt = long_form_one_format(fmt, notebook.metadata)
+    fmt = long_form_one_format(fmt, notebook.metadata, auto_ext_requires_language_info=False)
+    check_auto_ext(fmt, notebook.metadata, '--pipe-fmt')
     text = writes(notebook, fmt)
-    process = subprocess.Popen(command.split(' '), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-    cmd_output, err = process.communicate(input=text.encode('utf-8'))
 
-    if process.returncode:
-        sys.stderr.write("Command '{}' exited with code {}: {}"
-                         .format(command, process.returncode, err or cmd_output))
-        raise SystemExit(process.returncode)
+    command = command.split(' ')
+    if '{}' in command:
+        if prefix is not None:
+            prefix = prefix + (' ' if ' ' in prefix else '_')
+        tmp_file_args = dict(mode='w+',
+                             encoding='utf8',
+                             prefix=prefix,
+                             suffix=fmt['extension'],
+                             delete=False)
+        try:
+            tmp = NamedTemporaryFile(**tmp_file_args)
+        except TypeError:
+            # NamedTemporaryFile does not have an 'encoding' argument on pypy
+            tmp_file_args.pop('encoding')
+            tmp = NamedTemporaryFile(**tmp_file_args)
+        try:
+            tmp.write(text)
+            tmp.close()
 
-    if not update:
-        return notebook
+            exec_command([cmd if cmd != '{}' else tmp.name for cmd in command])
 
-    if not cmd_output:
-        sys.stderr.write("[jupytext] The command '{}' had no output. As a result, the notebook is empty. "
-                         "Is this expected? If not, use --check rather than --pipe for this command.".format(command))
+            if not update:
+                return notebook
 
-    piped_notebook = reads(cmd_output.decode('utf-8'), fmt)
+            piped_notebook = read(tmp.name, fmt=fmt)
+        finally:
+            os.remove(tmp.name)
+    else:
+        cmd_output = exec_command(command, text.encode('utf-8'))
+
+        if not update:
+            return notebook
+
+        if not cmd_output:
+            sys.stderr.write("[jupytext] The command '{}' had no output. As a result, the notebook is empty. "
+                             "Is this expected? If not, use --check rather than --pipe for this command."
+                             .format(command))
+
+        piped_notebook = reads(cmd_output.decode('utf-8'), fmt)
 
     if fmt['extension'] != '.ipynb':
         combine_inputs_with_outputs(piped_notebook, notebook, fmt)

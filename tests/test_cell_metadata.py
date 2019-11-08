@@ -13,9 +13,9 @@ SAMPLES = [('r', ('R', {})),
             ('R', {'name': 'plot_1', 'bool': True,
                    'fig.path': "'fig_path/'"})),
            ('r echo=FALSE',
-            ('R', {'hide_input': True})),
+            ('R', {'tags': ['remove_input']})),
            ('r plot_1, echo=TRUE',
-            ('R', {'name': 'plot_1', 'hide_input': False})),
+            ('R', {'name': 'plot_1', 'echo': True})),
            ('python echo=if a==5 then TRUE else FALSE',
             ('python', {'echo': 'if a==5 then TRUE else FALSE'})),
            ('python noname, tags=c("a", "b", "c"), echo={sum(a+c(1,2))>1}',
@@ -24,23 +24,23 @@ SAMPLES = [('r', ('R', {})),
            ('python active="ipynb,py"',
             ('python', {'active': 'ipynb,py'})),
            ('python include=FALSE, active="Rmd"',
-            ('python', {'active': 'Rmd', 'hide_output': True})),
+            ('python', {'active': 'Rmd', 'tags': ['remove_cell']})),
            ('r chunk_name, include=FALSE, active="Rmd"',
             ('R',
-             {'name': 'chunk_name', 'active': 'Rmd', 'hide_output': True})),
+             {'name': 'chunk_name', 'active': 'Rmd', 'tags': ['remove_cell']})),
            ('python tags=c("parameters")',
             ('python', {'tags': ['parameters']}))]
 
 
 @pytest.mark.parametrize('options,language_and_metadata', SAMPLES)
 def test_parse_rmd_options(options, language_and_metadata):
-    assert rmd_options_to_metadata(options) == language_and_metadata
+    compare(rmd_options_to_metadata(options), language_and_metadata)
 
 
 @skip_if_dict_is_not_ordered
 @pytest.mark.parametrize('options,language_and_metadata', SAMPLES)
 def test_build_options(options, language_and_metadata):
-    assert metadata_to_rmd_options(*language_and_metadata) == options
+    compare(metadata_to_rmd_options(*language_and_metadata), options)
 
 
 @pytest.mark.parametrize('options,language_and_metadata', SAMPLES)
@@ -63,7 +63,7 @@ def test_parsing_error(options):
 
 
 def test_ignore_metadata():
-    metadata = {'trusted': True, 'hide_input': True}
+    metadata = {'trusted': True, 'tags': ['remove_input']}
     metadata = filter_metadata(metadata, None, _IGNORE_CELL_METADATA)
     assert metadata_to_rmd_options('R', metadata) == 'r echo=FALSE'
 
@@ -137,9 +137,21 @@ def test_title_and_json_dict(text='cell title {"string": "value", "number": 1.0,
     assert metadata_to_text(*value) == 'cell title string="value" number=1.0 array=["a", "b"]'
 
 
-def test_tags(text="python .class",
-              value=('python', {'.class': None})):
+@pytest.mark.parametrize('allow_title', [True, False])
+def test_attribute(allow_title):
+    text = ".class"
+    value = ('', {'.class': None})
+    compare(text_to_metadata(text, allow_title), value)
+    assert metadata_to_text(*value) == text
+
+
+def test_language_and_attribute(text="python .class", value=('python', {'.class': None})):
     compare(text_to_metadata(text), value)
+    assert metadata_to_text(*value) == text
+
+
+def test_title_and_attribute(text="This is my title. .class", value=('This is my title.', {'.class': None})):
+    compare(text_to_metadata(text, allow_title=True), value)
     assert metadata_to_text(*value) == text
 
 

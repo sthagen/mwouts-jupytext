@@ -32,7 +32,7 @@ jupyter:
 
 '''}
 
-ACTIVE_ALL = {'.py': """# + {"active": "ipynb,py,R,Rmd"}
+ACTIVE_ALL = {'.py': """# + active="ipynb,py,R,Rmd"
 # This cell is active in all extensions
 """,
               '.Rmd': """```{python active="ipynb,py,R,Rmd"}
@@ -43,7 +43,7 @@ ACTIVE_ALL = {'.py': """# + {"active": "ipynb,py,R,Rmd"}
 # This cell is active in all extensions
 ```
 """,
-              '.R': """# + {"active": "ipynb,py,R,Rmd"}
+              '.R': """# + active="ipynb,py,R,Rmd"
 # This cell is active in all extensions
 """,
               '.ipynb': {'cell_type': 'code',
@@ -57,11 +57,11 @@ ACTIVE_ALL = {'.py': """# + {"active": "ipynb,py,R,Rmd"}
 def test_active_all(ext, no_jupytext_version_number):
     nb = jupytext.reads(HEADER[ext] + ACTIVE_ALL[ext], ext)
     assert len(nb.cells) == 1
-    compare(ACTIVE_ALL[ext], jupytext.writes(nb, ext))
+    compare(jupytext.writes(nb, ext), ACTIVE_ALL[ext])
     compare(nb.cells[0], ACTIVE_ALL['.ipynb'])
 
 
-ACTIVE_IPYNB = {'.py': """# + {"active": "ipynb"}
+ACTIVE_IPYNB = {'.py': """# + active="ipynb"
 # # This cell is active only in ipynb
 # %matplotlib inline
 """,
@@ -75,7 +75,7 @@ ACTIVE_IPYNB = {'.py': """# + {"active": "ipynb"}
 %matplotlib inline
 ```
 """,
-                '.R': """# + {"active": "ipynb"}
+                '.R': """# + active="ipynb"
 # # This cell is active only in ipynb
 # %matplotlib inline
 """,
@@ -92,11 +92,11 @@ ACTIVE_IPYNB = {'.py': """# + {"active": "ipynb"}
 def test_active_ipynb(ext, no_jupytext_version_number):
     nb = jupytext.reads(HEADER[ext] + ACTIVE_IPYNB[ext], ext)
     assert len(nb.cells) == 1
-    compare(ACTIVE_IPYNB[ext], jupytext.writes(nb, ext))
+    compare(jupytext.writes(nb, ext), ACTIVE_IPYNB[ext])
     compare(nb.cells[0], ACTIVE_IPYNB['.ipynb'])
 
 
-ACTIVE_IPYNB_RMD_USING_TAG = {'.py': """# + {"tags": ["active-ipynb-Rmd"]}
+ACTIVE_IPYNB_RMD_USING_TAG = {'.py': """# + tags=["active-ipynb-Rmd"]
 # # This cell is active only in ipynb and Rmd
 # %matplotlib inline
 """,
@@ -110,7 +110,7 @@ ACTIVE_IPYNB_RMD_USING_TAG = {'.py': """# + {"tags": ["active-ipynb-Rmd"]}
 %matplotlib inline
 ```
 """,
-                              '.R': """# + {"tags": ["active-ipynb-Rmd"]}
+                              '.R': """# + tags=["active-ipynb-Rmd"]
 # # This cell is active only in ipynb and Rmd
 # %matplotlib inline
 """,
@@ -127,7 +127,7 @@ ACTIVE_IPYNB_RMD_USING_TAG = {'.py': """# + {"tags": ["active-ipynb-Rmd"]}
 def test_active_ipynb_rmd_using_tags(ext, no_jupytext_version_number):
     nb = jupytext.reads(HEADER[ext] + ACTIVE_IPYNB_RMD_USING_TAG[ext], ext)
     assert len(nb.cells) == 1
-    compare(ACTIVE_IPYNB_RMD_USING_TAG[ext], jupytext.writes(nb, ext))
+    compare(jupytext.writes(nb, ext), ACTIVE_IPYNB_RMD_USING_TAG[ext])
     compare(nb.cells[0], ACTIVE_IPYNB_RMD_USING_TAG['.ipynb'])
 
 
@@ -147,11 +147,11 @@ ACTIVE_IPYNB_RSPIN = {'.R': """#+ active="ipynb", eval=FALSE
 def test_active_ipynb_rspin(no_jupytext_version_number):
     nb = jupytext.reads(ACTIVE_IPYNB_RSPIN['.R'], 'R:spin')
     assert len(nb.cells) == 1
-    compare(ACTIVE_IPYNB_RSPIN['.R'], jupytext.writes(nb, 'R:spin'))
+    compare(jupytext.writes(nb, 'R:spin'), ACTIVE_IPYNB_RSPIN['.R'])
     compare(nb.cells[0], ACTIVE_IPYNB_RSPIN['.ipynb'])
 
 
-ACTIVE_PY_IPYNB = {'.py': """# + {"active": "ipynb,py"}
+ACTIVE_PY_IPYNB = {'.py': """# + active="ipynb,py"
 # This cell is active in py and ipynb extensions
 """,
                    '.Rmd': """```{python active="ipynb,py", eval=FALSE}
@@ -162,7 +162,7 @@ ACTIVE_PY_IPYNB = {'.py': """# + {"active": "ipynb,py"}
 # This cell is active in py and ipynb extensions
 ```
 """,
-                   '.R': """# + {"active": "ipynb,py"}
+                   '.R': """# + active="ipynb,py"
 # # This cell is active in py and ipynb extensions
 """,
                    '.ipynb': {'cell_type': 'code',
@@ -178,18 +178,18 @@ ACTIVE_PY_IPYNB = {'.py': """# + {"active": "ipynb,py"}
 def test_active_py_ipynb(ext, no_jupytext_version_number):
     nb = jupytext.reads(HEADER[ext] + ACTIVE_PY_IPYNB[ext], ext)
     assert len(nb.cells) == 1
-    compare(ACTIVE_PY_IPYNB[ext], jupytext.writes(nb, ext))
+    compare(jupytext.writes(nb, ext), ACTIVE_PY_IPYNB[ext])
     compare(nb.cells[0], ACTIVE_PY_IPYNB['.ipynb'])
 
 
-ACTIVE_PY_R_IPYNB = {'.py': """# + {"active": "ipynb,py,R"}
+ACTIVE_PY_R_IPYNB = {'.py': """# + active="ipynb,py,R"
 # This cell is active in py, R and ipynb extensions
 """,
                      '.Rmd': """```{python active="ipynb,py,R", eval=FALSE}
 # This cell is active in py, R and ipynb extensions
 ```
 """,
-                     '.R': """# + {"active": "ipynb,py,R"}
+                     '.R': """# + active="ipynb,py,R"
 # This cell is active in py, R and ipynb extensions
 """,
                      '.ipynb': {'cell_type': 'code',
@@ -205,18 +205,18 @@ ACTIVE_PY_R_IPYNB = {'.py': """# + {"active": "ipynb,py,R"}
 def test_active_py_r_ipynb(ext, no_jupytext_version_number):
     nb = jupytext.reads(HEADER[ext] + ACTIVE_PY_R_IPYNB[ext], ext)
     assert len(nb.cells) == 1
-    compare(ACTIVE_PY_R_IPYNB[ext], jupytext.writes(nb, ext))
+    compare(jupytext.writes(nb, ext), ACTIVE_PY_R_IPYNB[ext])
     compare(nb.cells[0], ACTIVE_PY_R_IPYNB['.ipynb'])
 
 
-ACTIVE_RMD = {'.py': """# + {"active": "Rmd"}
+ACTIVE_RMD = {'.py': """# + active="Rmd"
 # # This cell is active in Rmd only
 """,
               '.Rmd': """```{python active="Rmd"}
 # This cell is active in Rmd only
 ```
 """,
-              '.R': """# + {"active": "Rmd"}
+              '.R': """# + active="Rmd"
 # # This cell is active in Rmd only
 """,
               '.ipynb': {'cell_type': 'raw',
@@ -229,25 +229,24 @@ ACTIVE_RMD = {'.py': """# + {"active": "Rmd"}
 def test_active_rmd(ext, no_jupytext_version_number):
     nb = jupytext.reads(HEADER[ext] + ACTIVE_RMD[ext], ext)
     assert len(nb.cells) == 1
-    compare(ACTIVE_RMD[ext], jupytext.writes(nb, ext))
+    compare(jupytext.writes(nb, ext), ACTIVE_RMD[ext])
     compare(nb.cells[0], ACTIVE_RMD['.ipynb'])
 
 
-ACTIVE_NOT_INCLUDE_RMD = {'.py': """# + {"hide_output": true, "active": "Rmd"}
+ACTIVE_NOT_INCLUDE_RMD = {'.py': """# + tags=["remove_cell"] active="Rmd"
 # # This cell is active in Rmd only
 """,
                           '.Rmd': """```{python include=FALSE, active="Rmd"}
 # This cell is active in Rmd only
 ```
 """,
-                          '.R': """# + {"hide_output": true, "active": "Rmd"}
+                          '.R': """# + tags=["remove_cell"] active="Rmd"
 # # This cell is active in Rmd only
 """,
                           '.ipynb':
                               {'cell_type': 'raw',
                                'source': '# This cell is active in Rmd only',
-                               'metadata': {'active': 'Rmd',
-                                            'hide_output': True}}}
+                               'metadata': {'active': 'Rmd', 'tags': ['remove_cell']}}}
 
 
 @skip_if_dict_is_not_ordered
@@ -255,5 +254,5 @@ ACTIVE_NOT_INCLUDE_RMD = {'.py': """# + {"hide_output": true, "active": "Rmd"}
 def test_active_not_include_rmd(ext, no_jupytext_version_number):
     nb = jupytext.reads(ACTIVE_NOT_INCLUDE_RMD[ext], ext)
     assert len(nb.cells) == 1
-    compare(ACTIVE_NOT_INCLUDE_RMD[ext], jupytext.writes(nb, ext))
+    compare(jupytext.writes(nb, ext), ACTIVE_NOT_INCLUDE_RMD[ext])
     compare(nb.cells[0], ACTIVE_NOT_INCLUDE_RMD['.ipynb'])

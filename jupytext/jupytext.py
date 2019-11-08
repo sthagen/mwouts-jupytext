@@ -72,18 +72,23 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
             cells.append(new_code_cell(source='%matplotlib inline'))
 
         cell_metadata = set()
+        cell_metadata_json = False
 
         while lines:
             reader = self.implementation.cell_reader_class(self.fmt, default_language)
             cell, pos = reader.read(lines)
             cells.append(cell)
             cell_metadata.update(cell.metadata.keys())
+            cell_metadata_json = cell_metadata_json or reader.cell_metadata_json
             if pos <= 0:
                 raise Exception('Blocked at lines ' + '\n'.join(lines[:6]))  # pragma: no cover
             lines = lines[pos:]
 
         update_metadata_filters(metadata, jupyter_md, cell_metadata)
         set_main_and_cell_language(metadata, cells, self.implementation.extension)
+
+        if cell_metadata_json:
+            metadata.setdefault('jupytext', {}).setdefault('cell_metadata_json', True)
 
         if self.implementation.format_name and self.implementation.format_name.startswith('sphinx'):
             filtered_cells = []
@@ -127,6 +132,11 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
         metadata = nb.metadata
         default_language = default_language_from_metadata_and_ext(metadata, self.implementation.extension) or 'python'
         self.update_fmt_with_notebook_options(nb.metadata)
+        if 'use_runtools' not in self.fmt:
+            for cell in nb.cells:
+                if cell.metadata.get('hide_input', False) or cell.metadata.get('hide_output', False):
+                    self.fmt['use_runtools'] = True
+                    break
 
         if 'main_language' in metadata.get('jupytext', {}):
             del metadata['jupytext']['main_language']
@@ -171,8 +181,6 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
                 if (i + 1 < len(cell_exporters) and not cell_exporters[i + 1].is_code() and
                         not texts[i][0].startswith('<!-- #') and
                         not texts[i + 1][0].startswith('<!-- #') and
-                        not texts[i][0].startswith('```') and
-                        not texts[i + 1][0].startswith('```') and
                         (not split_at_heading or not (texts[i + 1] and texts[i + 1][0].startswith('#')))):
                     text.append('')
 
@@ -181,17 +189,12 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
                 if i + 1 < len(cell_exporters) and cell_exporters[i + 1].is_code():
                     text.append('""')
 
-            if i + 1 < len(cell_exporters):
-                lines = cell_exporters[i + 1].simplify_soc_marker(lines, text)
             lines = text + lines
 
         if header_lines_to_next_cell is None:
             header_lines_to_next_cell = pep8_lines_between_cells(header_content, lines, self.implementation.extension)
 
         header.extend([''] * header_lines_to_next_cell)
-
-        if cell_exporters:
-            lines = cell_exporters[0].simplify_soc_marker(lines, header)
 
         return '\n'.join(header + lines)
 

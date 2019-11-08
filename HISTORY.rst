@@ -8,13 +8,22 @@ Release History
 
 **Improvements**
 
+- Pairing a notebook to both `.md` and `.py` is now supported. Input cells are loaded from the most recent text representation (#290)
+- Both the Jupyter Notebook and the Jupyter Lab extension for Jupytext were updated (#290)
 - Raw cells are now encoded using HTML comments (``<!-- #raw -->`` and ``<!-- #endraw -->``) in Markdown files (#321)
 - Markdown cells can be delimited with any of ``<!-- #region -->``,  ``<!-- #markdown -->`` or ``<!-- #md -->`` (#344)
 - Code blocks from Markdown files, when they don't have an explicit language, appear in Markdown cells in Jupyter (#321)
 - Code blocks with an explicit language and a ``.noeval`` attribute are inactive in Jupyter (#347)
 - Markdown and raw cells can be quoted with triple quotes in the ``py:percent`` format. And Markdown cells can start with just ``# %% [md]`` (#305)
-- ``jupytext notebook.py --to ipynb`` updates the timestamp of ``notebook.py`` so that the paired notebook still works in Jupyter (#335, #254)
+- The light format uses ``# + [markdown]`` rather than the previous ``cell_type`` metadata to identify markdown cells with metadata (#356)
+- Explicit Markdown cells in the light format ``# + [markdown]`` can use triple quotes (#356)
+- IPython magic help commands like ``float?`` are classified as magics, and thus commented in Python scripts (#297)
+- Cell metadata can be encoded as either key=value (the new default) or in JSON. An automatic option ``cell_metadata_json`` should help minimize the impact on existing files (#344)
+- R Markdown hidden inputs, outputs, or cells are now mapped to the corresponding Jupyter Book tags by default (#337)
 - The Jupyter Notebook extension for Jupytext is compatible with Jupyter Notebook 6.0 (#346)
+- ``jupytext notebook.py --to ipynb`` updates the timestamp of ``notebook.py`` so that the paired notebook still works in Jupyter (#335, #254)
+- ``jupytext --check pytest notebook.ipynb`` can be used to run test functions in a notebook (#286)
+- ``jupytext --check`` and ``jupytext --pipe`` can run commands that only operate on files: when ``{}`` is found in the text of the command, ``jupytext`` saves the text representation of the notebook in a temp file, and replaces ``{}`` with the name of that file before executing the command. (#286)
 - Added support for Rust/Evxcr, by Jonas Bushart (#351)
 - Added support for PowerShell (#349)
 
@@ -23,6 +32,8 @@ Release History
 - Commands like ``cat = x`` are not magic commands, so they are not commented any more (#339)
 - Fixed an inconsistent round trip (code cell with ``"cat"`` being converted to a markdown cell) in the ``py:light`` format (#339)
 - ``jupytext --test textfile.ext`` now really compares the text file to its round trip (rather than the corresponding notebook) (#339)
+- Markdown cells that contain code are now preserved in a round trip through the Markdown and R Markdown formats (#361)
+- Code cells with a ``%%python3`` cell magic are now preserved in a round trip through the Markdown format (#365)
 
 
 1.2.4 (2019-09-19)

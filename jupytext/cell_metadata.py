@@ -21,11 +21,23 @@ try:
 except NameError:
     unicode = str  # Python 3
 
-# Map R Markdown's "echo" and "include" to "hide_input" and "hide_output", that are understood by the `runtools`
-# extension for Jupyter notebook, and by nbconvert (use the `hide_input_output.tpl` template).
+# Map R Markdown's "echo", "results" and "include" to "hide_input" and "hide_output", that are understood by the
+# `runtools` extension for Jupyter notebook, and by nbconvert (use the `hide_input_output.tpl` template).
 # See http://jupyter-contrib-nbextensions.readthedocs.io/en/latest/nbextensions/runtools/readme.html
-_BOOLEAN_OPTIONS_DICTIONARY = [('hide_input', 'echo', True),
-                               ('hide_output', 'include', True)]
+_RMARKDOWN_TO_RUNTOOLS_OPTION_MAP = [
+    (('include', 'FALSE'), [('hide_input', True), ('hide_output', True)]),
+    (('echo', 'FALSE'), [('hide_input', True)]),
+    (('results', "'hide'"), [('hide_output', True)]),
+    (('results', '"hide"'), [('hide_output', True)])
+]
+# Alternatively, Jupytext can also map the Jupyter Book options to R Markdown
+_RMARKDOWN_TO_JUPYTER_BOOK_MAP = [
+    (('include', 'FALSE'), 'remove_cell'),
+    (('echo', 'FALSE'), 'remove_input'),
+    (('results', "'hide'"), 'remove_output'),
+    (('results', '"hide"'), 'remove_output')
+]
+
 _JUPYTEXT_CELL_METADATA = [
     # Pre-jupytext metadata
     'skipline', 'noskipline',
@@ -60,22 +72,25 @@ def _py_logical_values(rbool):
     raise RLogicalValueError
 
 
-def metadata_to_rmd_options(language, metadata):
-    """
-    Convert language and metadata information to their rmd representation
-    :param language:
-    :param metadata:
-    :return:
-    """
+def metadata_to_rmd_options(language, metadata, use_runtools=False):
+    """Convert language and metadata information to their rmd representation"""
     options = (language or 'R').lower()
     if 'name' in metadata:
         options += ' ' + metadata['name'] + ','
         del metadata['name']
-    for jupyter_option, rmd_option, rev in _BOOLEAN_OPTIONS_DICTIONARY:
-        if jupyter_option in metadata:
-            options += ' {}={},'.format(
-                rmd_option, _r_logical_values(metadata[jupyter_option] != rev))
-            del metadata[jupyter_option]
+    if use_runtools:
+        for rmd_option, jupyter_options in _RMARKDOWN_TO_RUNTOOLS_OPTION_MAP:
+            if all([metadata.get(opt_name) == opt_value for opt_name, opt_value in jupyter_options]):
+                options += ' {}={},'.format(rmd_option[0], 'FALSE' if rmd_option[1] is False else rmd_option[1])
+                for opt_name, _ in jupyter_options:
+                    metadata.pop(opt_name)
+    else:
+        for rmd_option, tag in _RMARKDOWN_TO_JUPYTER_BOOK_MAP:
+            if tag in metadata.get('tags', []):
+                options += ' {}={},'.format(rmd_option[0], 'FALSE' if rmd_option[1] is False else rmd_option[1])
+                metadata['tags'] = [i for i in metadata['tags'] if i != tag]
+                if not metadata['tags']:
+                    metadata.pop('tags')
     for opt_name in metadata:
         opt_value = metadata[opt_name]
         opt_name = opt_name.strip()
@@ -95,21 +110,19 @@ def metadata_to_rmd_options(language, metadata):
     return options.strip(',').strip()
 
 
-def update_metadata_from_rmd_options(name, value, metadata):
-    """
-    Update metadata using the _BOOLEAN_OPTIONS_DICTIONARY mapping
-    :param name: option name
-    :param value: option value
-    :param metadata:
-    :return:
-    """
-    for jupyter_option, rmd_option, rev in _BOOLEAN_OPTIONS_DICTIONARY:
-        if name == rmd_option:
-            try:
-                metadata[jupyter_option] = _py_logical_values(value) != rev
+def update_metadata_from_rmd_options(name, value, metadata, use_runtools=False):
+    """Map the R Markdown cell visibility options to the Jupyter ones"""
+    if use_runtools:
+        for rmd_option, jupyter_options in _RMARKDOWN_TO_RUNTOOLS_OPTION_MAP:
+            if name == rmd_option[0] and value == rmd_option[1]:
+                for opt_name, opt_value in jupyter_options:
+                    metadata[opt_name] = opt_value
                 return True
-            except RLogicalValueError:
-                pass
+    else:
+        for rmd_option, tag in _RMARKDOWN_TO_JUPYTER_BOOK_MAP:
+            if name == rmd_option[0] and value == rmd_option[1]:
+                metadata.setdefault('tags', []).append(tag)
+                return True
     return False
 
 
@@ -210,12 +223,8 @@ def parse_rmd_options(line):
     return result
 
 
-def rmd_options_to_metadata(options):
-    """
-    Parse rmd options and return a metadata dictionary
-    :param options:
-    :return:
-    """
+def rmd_options_to_metadata(options, use_runtools=False):
+    """Parse rmd options and return a metadata dictionary"""
     options = re.split(r'\s|,', options, 1)
     if len(options) == 1:
         language = options[0]
@@ -233,7 +242,7 @@ def rmd_options_to_metadata(options):
         if i == 0 and name == '':
             metadata['name'] = value
             continue
-        if update_metadata_from_rmd_options(name, value, metadata):
+        if update_metadata_from_rmd_options(name, value, metadata, use_runtools=use_runtools):
             continue
         try:
             metadata[name] = _py_logical_values(value)
@@ -288,7 +297,7 @@ def is_active(ext, metadata, default=True):
     return ext.replace('.', '') in re.split(r'\.|,', metadata['active'])
 
 
-def metadata_to_double_percent_options(metadata):
+def metadata_to_double_percent_options(metadata, plain_json):
     """Metadata to double percent lines"""
     text = []
     if 'title' in metadata:
@@ -297,7 +306,7 @@ def metadata_to_double_percent_options(metadata):
         text.insert(0, '%' * metadata.pop('cell_depth'))
     if 'cell_type' in metadata:
         text.append('[{}]'.format(metadata.pop('region_name', metadata.pop('cell_type'))))
-    return metadata_to_text(' '.join(text), metadata, plain_json=True)
+    return metadata_to_text(' '.join(text), metadata, plain_json=plain_json)
 
 
 def incorrectly_encoded_metadata(text):
@@ -384,6 +393,19 @@ def relax_json_loads(text, catch=False):
     return incorrectly_encoded_metadata(text)
 
 
+def is_json_metadata(text):
+    """Is this a JSON metadata?"""
+    first_curly_bracket = text.find('{')
+    if first_curly_bracket < 0:
+        return False
+
+    first_equal_sign = text.find('=')
+    if first_equal_sign < 0:
+        return True
+
+    return first_curly_bracket < first_equal_sign
+
+
 def text_to_metadata(text, allow_title=False):
     """Parse the language/cell title and associated metadata"""
     # Parse the language or cell title = everything before the last blank space before { or =
@@ -391,27 +413,37 @@ def text_to_metadata(text, allow_title=False):
     first_curly_bracket = text.find('{')
     first_equal_sign = text.find('=')
 
-    if first_curly_bracket < 0 and first_equal_sign < 0 and allow_title:
-        # no metadata
-        return text, {}
-
     if first_curly_bracket < 0 or (0 <= first_equal_sign < first_curly_bracket):
         # this is a key=value metadata line
-        if allow_title:
-            prev_whitespace = text[:first_equal_sign].rstrip().rfind(' ')
-        else:
-            prev_whitespace = text.find(' ')
-
-        # single expression
-        if prev_whitespace < 0:
-            # is is a title or a jupyter language?
-            if (allow_title and first_equal_sign < 0) or is_jupyter_language(text):
+        # case one = the options may be preceeded with a language
+        if not allow_title:
+            if is_jupyter_language(text):
                 return text, {}
+            if ' ' not in text:
+                return '', parse_key_equal_value(text)
+            language, options = text.split(' ', 1)
+            if is_jupyter_language(language):
+                return language, parse_key_equal_value(options)
+            return '', parse_key_equal_value(text)
 
-            # else, parse this expression as a key
-            prev_whitespace = 0
+        # case two = a title may be before the options
+        # we split the title into words
+        if first_equal_sign >= 0:
+            words = text[:first_equal_sign].split(' ')
+            # last word is the key before the equal sign!
+            while words and not words[-1]:
+                words.pop()
+            if words:
+                words.pop()
+        else:
+            words = text.split(' ')
 
-        return text[:prev_whitespace].rstrip(), parse_key_equal_value(text[prev_whitespace:])
+        # and we remove words on the right that are attributes (they start with '.')
+        while words and (not words[-1].strip() or words[-1].startswith('.')):
+            words.pop()
+
+        title = ' '.join(words)
+        return title, parse_key_equal_value(text[len(title):])
 
     # json metadata line
     return text[:first_curly_bracket].strip(), relax_json_loads(text[first_curly_bracket:], catch=True)

@@ -163,7 +163,7 @@ def test_save_load_paired_md_notebook(nb_file, tmpdir):
 
 @requires_pandoc
 @skip_if_dict_is_not_ordered
-@pytest.mark.parametrize('nb_file', list_notebooks('ipynb', skip='(functional|Notebook with|flavors|invalid)'))
+@pytest.mark.parametrize('nb_file', list_notebooks('ipynb', skip='(functional|Notebook with|flavors|invalid|305)'))
 def test_save_load_paired_md_pandoc_notebook(nb_file, tmpdir):
     tmp_ipynb = 'notebook.ipynb'
     tmp_md = 'notebook.md'
@@ -206,7 +206,7 @@ def test_pair_plain_script(py_file, tmpdir):
     with open(str(tmpdir.join(tmp_py))) as fp:
         script2 = fp.read()
 
-    compare(script, script2)
+    compare(script2, script)
 
     # reopen py file with the cm
     nb2 = cm.get(tmp_py)['content']
@@ -278,7 +278,7 @@ def test_load_save_py_freeze_metadata(script, tmpdir):
     with open(str(tmpdir.join(tmp_nbpy))) as fp:
         text_py2 = fp.read()
 
-    compare(text_py, text_py2)
+    compare(text_py2, text_py)
 
 
 @skip_if_dict_is_not_ordered
@@ -487,7 +487,7 @@ def test_load_save_percent_format(nb_file, tmpdir):
     # Remove the YAML header
     text_py2 = text_py2[-len(text_py):]
 
-    compare(text_py, text_py2)
+    compare(text_py2, text_py)
 
 
 @skip_if_dict_is_not_ordered
@@ -934,7 +934,7 @@ def test_save_in_pct_and_lgt_auto_extensions(nb_file, tmpdir):
         assert read_format_from_metadata(stream.read(), auto_ext) == 'light'
 
 
-@pytest.mark.parametrize('nb_file', list_notebooks('ipynb', skip='magic'))
+@pytest.mark.parametrize('nb_file', list_notebooks('ipynb', skip='(magic|305)'))
 def test_metadata_filter_is_effective(nb_file, tmpdir):
     nb = jupytext.read(nb_file)
     tmp_ipynb = 'notebook.ipynb'
@@ -1011,7 +1011,7 @@ print('hello2')
     cm.save(model=model, path='script.py')
 
     with open(tmp_script) as fp:
-        compare(text, fp.read())
+        compare(fp.read(), text)
 
 
 @pytest.mark.parametrize('nb_file,ext', itertools.product(list_notebooks('ipynb_py'), ['.py', '.ipynb']))
@@ -1087,7 +1087,7 @@ def test_python_kernel_preserves_R_files(nb_file, tmpdir):
     with open(tmp_r_file) as fp:
         script2 = fp.read()
 
-    compare(script, script2)
+    compare(script2, script)
 
 
 def test_pair_notebook_in_another_folder(tmpdir):
@@ -1174,7 +1174,7 @@ def test_split_at_heading_option(tmpdir):
 
     nb.metadata['jupytext']['notebook_metadata_filter'] = '-all'
     text2 = writes(nb, 'md')
-    compare(text, text2)
+    compare(text2, text)
 
 
 def test_load_then_change_formats(tmpdir):
@@ -1343,7 +1343,7 @@ def test_vim_folding_markers(tmpdir):
     # Remove YAML header
     text = re.sub(re.compile(r'# ---.*# ---\n\n', re.DOTALL), '', text)
 
-    compare("""# region
+    compare(text, """# region
 '''Sample cell with region markers'''
 '''End of the cell'''
 # end region
@@ -1354,7 +1354,7 @@ a = 1
 
 b = 1
 # }}}
-""", text)
+""")
 
 
 def test_vscode_pycharm_folding_markers(tmpdir):
@@ -1390,7 +1390,7 @@ def test_vscode_pycharm_folding_markers(tmpdir):
     # Remove YAML header
     text = re.sub(re.compile(r'# ---.*# ---\n\n', re.DOTALL), '', text)
 
-    compare("""# {{{
+    compare(text, """# {{{
 '''Sample cell with region markers'''
 '''End of the cell'''
 # }}}
@@ -1401,7 +1401,7 @@ a = 1
 
 b = 1
 # endregion
-""", text)
+""")
 
 
 def test_open_file_with_default_cell_markers(tmpdir):
@@ -1439,7 +1439,7 @@ def test_open_file_with_default_cell_markers(tmpdir):
 # endregion
 """
 
-    compare(expected, text2)
+    compare(text2, expected)
 
 
 def test_save_file_with_default_cell_markers(tmpdir):
@@ -1471,7 +1471,7 @@ def test_save_file_with_default_cell_markers(tmpdir):
     with open(tmp_py) as fp:
         text2 = fp.read()
 
-    compare('\n'.join(text.splitlines()), '\n'.join(text2.splitlines()[-len(text.splitlines()):]))
+    compare('\n'.join(text2.splitlines()[-len(text.splitlines()):]), '\n'.join(text.splitlines()))
 
     nb2 = cm.get('nb.py')['content']
     compare_notebooks(nb2, nb)
@@ -1543,3 +1543,56 @@ def test_server_extension_issubclass():
 
     assert not isinstance(SubClassTextFileContentsManager, jupytext.TextFileContentsManager)
     assert issubclass(SubClassTextFileContentsManager, jupytext.TextFileContentsManager)
+
+
+def test_multiple_pairing(tmpdir):
+    """Test that multiple pairing works. Input cells are loaded from the most recent text representation among
+    the paired ones"""
+    tmp_ipynb = str(tmpdir.join('notebook.ipynb'))
+    tmp_md = str(tmpdir.join('notebook.md'))
+    tmp_py = str(tmpdir.join('notebook.py'))
+
+    def nb(text):
+        return new_notebook(cells=[new_markdown_cell(text)],
+                            metadata={'jupytext': {'formats': 'ipynb,md,py'}})
+
+    cm = jupytext.TextFileContentsManager()
+    cm.root_dir = str(tmpdir)
+
+    cm.save(model=dict(type='notebook', content=nb('saved from cm')), path='notebook.ipynb')
+    compare_notebooks(jupytext.read(tmp_ipynb), nb('saved from cm'))
+    compare_notebooks(jupytext.read(tmp_md), nb('saved from cm'))
+    compare_notebooks(jupytext.read(tmp_py), nb('saved from cm'))
+
+    jupytext.write(nb('md edited'), tmp_md)
+    model = cm.get('notebook.ipynb')
+    compare_notebooks(model['content'], nb('md edited'))
+
+    cm.save(model=model, path='notebook.ipynb')
+    compare_notebooks(jupytext.read(tmp_ipynb), nb('md edited'))
+    compare_notebooks(jupytext.read(tmp_md), nb('md edited'))
+    compare_notebooks(jupytext.read(tmp_py), nb('md edited'))
+
+    jupytext.write(nb('py edited'), tmp_py)
+
+    # Loading the md file give the content of that file
+    model = cm.get('notebook.md')
+    compare_notebooks(model['content'], nb('md edited'))
+
+    # Loading the ipynb files gives the content of the most recent text file
+    model = cm.get('notebook.ipynb')
+    compare_notebooks(model['content'], nb('py edited'))
+
+    cm.save(model=model, path='notebook.ipynb')
+    compare_notebooks(jupytext.read(tmp_ipynb), nb('py edited'))
+    compare_notebooks(jupytext.read(tmp_md), nb('py edited'))
+    compare_notebooks(jupytext.read(tmp_py), nb('py edited'))
+
+    model_ipynb = cm.get('notebook.ipynb', content=False, load_alternative_format=False)
+    model_md = cm.get('notebook.md', content=False, load_alternative_format=False)
+    model_py = cm.get('notebook.py', content=False, load_alternative_format=False)
+
+    # ipynb is the older, then py, then md
+    # so that we read cell inputs from the py file
+    assert model_ipynb['last_modified'] < model_py['last_modified']
+    assert model_py['last_modified'] < model_md['last_modified']

@@ -1,4 +1,6 @@
-# Jupyter notebooks as Markdown documents, Julia, Python or R scripts
+# Jupyter Notebooks as Markdown Documents, Julia, Python or R Scripts
+
+![](logo.png)
 
 ## Contents
 

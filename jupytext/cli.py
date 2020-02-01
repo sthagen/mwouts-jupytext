@@ -12,6 +12,7 @@ from tempfile import NamedTemporaryFile
 from .jupytext import read, reads, write, writes
 from .formats import _VALID_FORMAT_OPTIONS, _BINARY_FORMAT_OPTIONS, check_file_version
 from .formats import long_form_one_format, long_form_multiple_formats, short_form_one_format, check_auto_ext
+from .languages import _SCRIPT_EXTENSIONS
 from .header import recursive_update
 from .paired_paths import paired_paths, base_path, full_path, InconsistentPath
 from .combine import combine_inputs_with_outputs
@@ -56,7 +57,7 @@ def parse_jupytext_args(args=None):
         """Keep the raw formatting in command line help, plus show the default values"""
 
     parser = argparse.ArgumentParser(
-        description='Jupyter notebooks as markdown documents, Julia, Python or R scripts',
+        description='Jupyter Notebooks as Markdown Documents, Julia, Python or R Scripts',
         formatter_class=RawTextArgumentDefaultsHelpFormatter)
 
     # Input
@@ -243,7 +244,7 @@ def jupytext(args=None):
             and not args.pipe and not args.check \
             and not args.update_metadata and not args.set_kernel \
             and not args.execute:
-        raise ValueError('Please provide one of --to, --output, --sync, --pipe, '
+        raise ValueError('Please provide one of --to, --output, --set-formats, --sync, --pipe, '
                          '--check, --update_metadata, --set-kernel or --execute')
 
     if args.output and len(args.notebooks) != 1:
@@ -360,8 +361,8 @@ def jupytext_single_file(nb_file, args, log):
         if 'kernelspec' in args.update_metadata and 'main_language' in notebook.metadata.get('jupytext', {}):
             notebook.metadata['jupytext'].pop('main_language')
 
-    # Read paired notebooks
-    if args.sync:
+    # Read paired notebooks, except if the pair is being created
+    if args.sync and args.set_formats is None:
         set_prefix_and_suffix(fmt, notebook, nb_file)
         try:
             notebook, inputs_nb_file, outputs_nb_file = load_paired_notebook(notebook, fmt, nb_file, log)
@@ -384,7 +385,13 @@ def jupytext_single_file(nb_file, args, log):
         kernel_name = notebook.metadata.get('kernelspec', {}).get('name')
         log("[jupytext] Executing notebook with kernel {}".format(kernel_name))
         exec_proc = ExecutePreprocessor(timeout=None, kernel_name=kernel_name)
-        exec_proc.preprocess(notebook, resources={})
+        if nb_dest is not None and nb_dest != '-':
+            resources = {'metadata': {'path': str(os.path.dirname(nb_dest))}}
+        elif nb_file != '-':
+            resources = {'metadata': {'path': str(os.path.dirname(nb_file))}}
+        else:
+            resources = {}
+        exec_proc.preprocess(notebook, resources=resources)
 
     # III. ### Possible actions ###
     modified = args.update_metadata or args.pipe or args.execute
@@ -409,7 +416,19 @@ def jupytext_single_file(nb_file, args, log):
                     notebook = reads(dest_text, fmt=dest_fmt)
 
                 text = writes(notebook, fmt=fmt)
-                compare(text, org_text)
+
+                if args.test_strict:
+                    compare(text, org_text)
+                else:
+                    # we ignore the YAML header in the comparison #414
+                    comment = _SCRIPT_EXTENSIONS.get(fmt['extension'], {}).get('comment', '')
+                    # white spaces between the comment char and the YAML delimiters are allowed
+                    if comment:
+                        comment = comment + r'\s*'
+                    yaml_header = re.compile(r'^{}---\s*\n.*\n{}---\s*\n'.format(comment, comment),
+                                             re.MULTILINE | re.DOTALL)
+                    compare(re.sub(yaml_header, '', text),
+                            re.sub(yaml_header, '', org_text))
 
         except (NotebookDifference, AssertionError) as err:
             sys.stdout.write('{}: {}'.format(nb_file, str(err)))
@@ -467,7 +486,8 @@ def jupytext_single_file(nb_file, args, log):
                 write(notebook, alt_path, fmt=alt_fmt)
                 if args.pre_commit:
                     system('git', 'add', alt_path)
-    elif os.path.isfile(nb_file) and nb_dest.endswith('.ipynb') and not nb_file.endswith('.ipynb'):
+    elif os.path.isfile(nb_file) and nb_dest.endswith('.ipynb') and not nb_file.endswith('.ipynb') and \
+            notebook.metadata.get('jupytext', {}).get('formats') is not None:
         # Update the original text file timestamp, as required by our Content Manager
         # Otherwise Jupyter will refuse to open the paired notebook #335
         log("[jupytext] Sync timestamp of '{}'".format(nb_file))

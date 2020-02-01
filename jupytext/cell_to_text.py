@@ -33,17 +33,14 @@ class BaseCellExporter(object):
         self.ext = self.fmt.get('extension')
         self.cell_type = cell.cell_type
         self.source = cell_source(cell)
-        self.unfiltered_metadata = copy(cell.metadata)
-        self.metadata = filter_metadata(copy(cell.metadata),
+        self.unfiltered_metadata = cell.metadata
+        self.metadata = filter_metadata(cell.metadata,
                                         self.fmt.get('cell_metadata_filter'),
                                         _IGNORE_CELL_METADATA)
         self.language, magic_args = cell_language(self.source) if self.parse_cell_language else (None, None)
 
         if self.language:
             if magic_args:
-                if self.ext.endswith('.Rmd'):
-                    quote = '"' if "'" in magic_args else "'"
-                    magic_args = quote + magic_args + quote
                 self.metadata['magic_args'] = magic_args
 
             if not self.ext.endswith('.Rmd'):
@@ -248,6 +245,7 @@ class LightScriptCellExporter(BaseCellExporter):
                 self.metadata['cell_type'] = self.cell_type
                 self.source = self.markdown_to_text(self.source)
                 self.cell_type = 'code'
+                self.unfiltered_metadata = copy(self.unfiltered_metadata)
                 self.unfiltered_metadata.pop('cell_marker', '')
             return True
         return super(LightScriptCellExporter, self).is_code()

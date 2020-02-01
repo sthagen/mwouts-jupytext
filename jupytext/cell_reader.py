@@ -12,7 +12,7 @@ except (ImportError, SyntaxError):
     rst2md = None
 
 from .cell_metadata import is_active, text_to_metadata, is_json_metadata, rmd_options_to_metadata
-from .languages import _JUPYTER_LANGUAGES
+from .languages import _JUPYTER_LANGUAGES_LOWER_AND_UPPER
 from .stringparser import StringParser
 from .magics import uncomment_magic, is_magic, unescape_code_start, need_explicit_marker
 from .pep8 import pep8_lines_between_cells
@@ -263,8 +263,8 @@ class BaseCellReader(object):
 class MarkdownCellReader(BaseCellReader):
     """Read notebook cells from Markdown documents"""
     comment = ''
-    start_code_re = re.compile(r"^```({})($|\s(.*)$)".format('|'.join(
-        _JUPYTER_LANGUAGES.union({str.upper(lang) for lang in _JUPYTER_LANGUAGES})).replace('+', '\\+')))
+    start_code_re = re.compile(r"^```({})($|\s(.*)$)".format(
+        '|'.join(_JUPYTER_LANGUAGES_LOWER_AND_UPPER).replace('+', '\\+')))
     non_jupyter_code_re = re.compile(r"^```")
     end_code_re = re.compile(r"^```\s*$")
     start_region_re = re.compile(r"^<!--\s*#(region|markdown|md|raw)(.*)-->\s*$")
@@ -276,8 +276,10 @@ class MarkdownCellReader(BaseCellReader):
         self.split_at_heading = (fmt or {}).get('split_at_heading', False)
         self.in_region = False
         self.in_raw = False
-        if self.format_version in ['1.0', '1.1']:
+        if self.format_version in ['1.0', '1.1'] and self.ext != '.Rmd':
+            # Restore the pattern used in Markdown <= 1.1
             self.start_code_re = re.compile(r"^```(.*)")
+            self.non_jupyter_code_re = re.compile(r"^```\{")
 
     def metadata_and_language_from_option_line(self, line):
         match_region = self.start_region_re.match(line)
@@ -375,10 +377,17 @@ class MarkdownCellReader(BaseCellReader):
                     prev_blank = 0
         else:
             self.cell_type = 'code'
+            parser = StringParser(self.language or self.default_language)
             for i, line in enumerate(lines):
                 # skip cell header
                 if i == 0:
                     continue
+
+                if parser.is_quoted():
+                    parser.read_line(line)
+                    continue
+
+                parser.read_line(line)
                 if self.end_code_re.match(line):
                     return i, i + 1, True
 
@@ -507,7 +516,7 @@ class LightScriptCellReader(ScriptCellReader):
         self.comment = script['comment']
         self.ignore_end_marker = True
         self.explicit_end_marker_required = False
-        if fmt and 'cell_markers' in fmt and fmt['cell_markers'] != '+,-':
+        if fmt and fmt.get('format_name', 'light') == 'light' and 'cell_markers' in fmt and fmt['cell_markers'] != '+,-':
             self.cell_marker_start, self.cell_marker_end = fmt['cell_markers'].split(',', 1)
             self.start_code_re = re.compile('^' + self.comment + r'\s*' + self.cell_marker_start + r'(.*)$')
             self.end_code_re = re.compile('^' + self.comment + r'\s*' + self.cell_marker_end + r'\s*$')

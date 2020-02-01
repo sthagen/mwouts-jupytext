@@ -28,8 +28,7 @@ You want to submit an enhancement on Jupytext? Unless this is a small change, we
 A pull request for which you do not need to contact us in advance is the addition of a new language to Jupytext. In principle that should be easy - you would only have to:
 - document the language extension and comment by adding one line to `_SCRIPT_EXTENSIONS` in `languages.py`.
 - contribute a sample notebook in `tests/notebooks/ipynb_[language]`.
-- add two tests in `test_mirror.py`: one for the `light` format, and another one for the `percent` format.
-- Make sure that the tests pass, and that the text representations of your notebook, found in  `tests/notebooks/mirror/ipynb_to_script` and `tests/notebooks/mirror/ipynb_to_percent`, are valid scripts.
+- run the tests suite (with just `pytest`). The mirror tests will generate various text representations corresponding to your notebook under  `tests/notebooks/mirror/`. Please verify that these files are valid scripts, and commit them.
 
 # How to setup a development environment for Jupytext
 
@@ -38,14 +37,13 @@ A pull request for which you do not need to contact us in advance is the additio
 Most of Jupytext's code is written in Python. To develop the Python part of Jupytext, you should clone Jupytext, then create a dedicated Python env:
 ```
 cd jupytext
-conda create -n jupytext-dev jupyterlab pyyaml
+conda env create --file environment.yml  # or conda env update --file ...
 conda activate jupytext-dev
-pip install -r requirements-dev.txt
+pip install -e .
 ```
 
-Tests are executed with `pytest`. Install `pytest-xdist` to allow running the tests in parallel:
+Tests are executed with `pytest`. You can run them in parallel with for instance
 ```
-pip install pytest-xdist
 pytest -n 5
 ``` 
 

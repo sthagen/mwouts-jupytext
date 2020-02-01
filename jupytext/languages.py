@@ -3,7 +3,7 @@
 # Jupyter magic commands that are also languages
 _JUPYTER_LANGUAGES = ['R', 'bash', 'sh', 'python', 'python2', 'python3', 'javascript', 'js', 'perl',
                       'html', 'latex', 'markdown', 'pypy', 'ruby', 'script', 'svg',
-                      'matlab', 'octave', 'idl', 'spark', 'sql']
+                      'matlab', 'octave', 'idl', 'robotframework', 'spark', 'sql']
 
 # Supported file extensions (and languages)
 # Please add more languages here (and add a few tests) - see CONTRIBUTING.md
@@ -23,13 +23,15 @@ _SCRIPT_EXTENSIONS = {'.py': {'language': 'python', 'comment': '#'},
                       '.js': {'language': 'javascript', 'comment': '//'},
                       '.ts': {'language': 'typescript', 'comment': '//'},
                       '.scala': {'language': 'scala', 'comment': '//'},
-                      '.rs': {'language': 'rust', 'comment': '//'}}
+                      '.rs': {'language': 'rust', 'comment': '//'},
+                      '.robot': {'language': 'robotframework', 'comment': '#'}}
 
 _COMMENT_CHARS = [_SCRIPT_EXTENSIONS[ext]['comment'] for ext in _SCRIPT_EXTENSIONS if
                   _SCRIPT_EXTENSIONS[ext]['comment'] != '#']
 
 _COMMENT = {_SCRIPT_EXTENSIONS[ext]['language']: _SCRIPT_EXTENSIONS[ext]['comment'] for ext in _SCRIPT_EXTENSIONS}
 _JUPYTER_LANGUAGES = set(_JUPYTER_LANGUAGES).union(_COMMENT.keys())
+_JUPYTER_LANGUAGES_LOWER_AND_UPPER = _JUPYTER_LANGUAGES.union({str.upper(lang) for lang in _JUPYTER_LANGUAGES})
 
 
 def default_language_from_metadata_and_ext(metadata, ext):

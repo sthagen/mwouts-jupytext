@@ -40,6 +40,14 @@ No, you don't (*). You can edit the paired text file and simply refresh your nav
 
 The `.ipynb` file contains the full notebook. The paired text file only contains the input cells and selected metadata. When the notebook is loaded by Jupyter, input cells are loaded from the text file, while the output cells and the filtered metadata are restored using the `.ipynb` file. When the notebook is saved in Jupyter, the two files are updated to match the current content of the notebook.
 
+## How do I remove pairing?
+
+Paired Jupyter Notebooks contains specific `jupytext` metadata that you may want to remove. You may want to keep the pairing only while editing the files, and when it comes the time to distribute them, it may make sense to remove the pairing. To do so, you can update the metadata in the `.ipynb` files as follows:
+
+~~~
+jupytext --update-metadata '{"jupytext": null}' path/to/notebooks/*.ipynb
+~~~
+
 ## Can I create a notebook from a text file?
 
 Certainly. Open your pre-existing scripts or Markdown files as notebooks with a click in Jupyter Notebook, and with the _Open as Notebook_ menu in JupyterLab.
@@ -62,6 +70,19 @@ That's possible! See how to [activate or deactivate cells](formats.md#active-and
 Unless you want to version the outputs, you should version *only the text representation*. The paired `.ipynb` file can safely be deleted. It will be recreated locally the next time you open the notebook (from the text file) and save it.
 
 Note that if you version both the `.md` and `.ipynb` files, you can configure `git diff` to [ignore the diffs on the `.ipynb` files](https://github.com/mwouts/jupytext/issues/251).
+
+## I have modified a text file, but git reports no diff for the paired `.ipynb` file
+
+The synchronization between the two files happens when you reload and *save* the notebook in Jupyter, or when you explicitly run `jupytext --sync`. If you want to force the synchronization on every commit, create a file `.git\hooks\pre-commit` with the following content:
+
+```bash
+#!/bin/sh
+jupytext --sync --pre-commit
+```
+
+and make it executable: `chmod u+x .git\hooks\pre-commit`.
+
+Alternatively, VIM users can give a try to the [jupytext.vim](https://github.com/goerz/jupytext.vim) plugin.
 
 ## Jupyter warns me that the file has changed on disk
 

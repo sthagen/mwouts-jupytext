@@ -10,6 +10,7 @@ import json
 from copy import copy
 from tempfile import NamedTemporaryFile
 from .jupytext import read, reads, write, writes
+from .formats import NOTEBOOK_EXTENSIONS, JUPYTEXT_FORMATS
 from .formats import _VALID_FORMAT_OPTIONS, _BINARY_FORMAT_OPTIONS, check_file_version
 from .formats import long_form_one_format, long_form_multiple_formats, short_form_one_format, check_auto_ext
 from .languages import _SCRIPT_EXTENSIONS
@@ -77,10 +78,29 @@ def parse_jupytext_args(args=None):
                              'extension that matches the (optional) --from argument.\n')
     # Destination format & act on metadata
     parser.add_argument('--to',
-                        help="Destination format: either one of 'notebook', 'markdown',\n"
-                             "'rmarkdown', 'script', any valid notebook extension, or a\n"
-                             "full format description, i.e.\n"
-                             "'[prefix_path//][suffix.]ext[:format_name]")
+                        help="Destination format: either 'notebook' (extension .ipynb),\n"
+                             "'markdown' (.md), 'rmarkdown' (.Rmd), 'script', a supported\n"
+                             "extension, or an explicit extension/format description\n"
+                             "[prefix_path//][suffix.]ext[:format_name], where\n" +
+                             "- ext is one of {}, or auto\n"
+                        .format(', '.join(ext[1:] for ext in NOTEBOOK_EXTENSIONS)) +
+                             "- format_name is optional, and can be {} for Markdown\nfiles, and ".format(
+                                 ' or '.join(
+                                     set(fmt.format_name for fmt in JUPYTEXT_FORMATS if fmt.extension == '.md'))) +
+                             "{} for scripts.\n".format(
+                                 ', '.join(set(fmt.format_name for fmt in JUPYTEXT_FORMATS if fmt.extension == '.py')))
+                             +
+                             "The default format for scripts is the 'light' format,\n"
+                             "which uses few cell markers (none when possible).\n"
+                             "Alternatively, a format compatible with many editors is the\n"
+                             "'percent' format, which uses '# %%%%' as cell markers\n"
+                             "The main formats (markdown, light, percent) preserve\n"
+                             "notebooks and text documents in a roundtrip. Use the\n"
+                             "--test and and --test-strict commands to test the roundtrip\n"
+                             "on your files.\n"
+                             "Read more about the available formats at\n"
+                             "https://jupytext.readthedocs.io/en/latest/formats.html\n"
+                        )
     parser.add_argument('--format-options', '--opt',
                         action='append',
                         help='Set format options with e.g.\n'

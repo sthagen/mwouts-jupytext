@@ -1,3 +1,11 @@
+1.3.5 (2020-03-08)
+------------------
+
+**Fixed**
+- Removed leading slash in notebook paths (#444)
+- Fixed `jupytext --set-formats` when using formats with prefix and/or suffix (#450)
+
+
 1.3.4 (2020-02-18)
 ------------------
 

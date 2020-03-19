@@ -1,3 +1,7 @@
+# 1.2.1 (2020-03-18)
+
+- The extension can pair a notebook to the new MyST Markdown format, developed by the [ExecutableBookProject](https://github.com/ExecutableBookProject) team. Thanks to Chris Sewell for his PRs! (#447 #456 #458)
+
 # 1.2.0 (2020-03-09)
 
 - This version of the extension is compatible with JupyterLab 2.0. Many thanks to Jean Helie! (#449)

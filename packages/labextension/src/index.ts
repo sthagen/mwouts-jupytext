@@ -44,6 +44,10 @@ const JUPYTEXT_FORMATS = [
     label: "Pair Notebook with Markdown"
   },
   {
+    format: "md:myst",
+    label: "Pair Notebook with MyST Markdown"
+  },
+  {
     format: "Rmd",
     label: "Pair Notebook with R Markdown"
   },
@@ -145,7 +149,7 @@ const extension: JupyterFrontEndPlugin<void> = {
           if (format == "custom"){
               for (const i in jupytext_formats) {
                   const fmt = jupytext_formats[i];
-                  if (['ipynb', 'auto:light', 'auto:percent', 'auto:hydrogen', 'auto:nomarker', 'md', 'Rmd'].indexOf(fmt)==-1)
+                  if (['ipynb', 'auto:light', 'auto:percent', 'auto:hydrogen', 'auto:nomarker', 'md', 'Rmd', 'md:myst'].indexOf(fmt)==-1)
                       return true;
               }
               return false;

@@ -9,7 +9,10 @@ _DEFAULT_NOTEBOOK_METADATA = ','.join([
     # Preserve kernel specs
     'kernelspec',
     # Kernel_info found in Nteract notebooks
-    'kernel_info'])
+    'kernel_info',
+    # Used in MyST notebooks
+    'orphan', 'tocdepth'
+])
 
 
 def metadata_filter_as_dict(metadata_config):
@@ -98,7 +101,7 @@ def update_metadata_filters(metadata, jupyter_md, cell_metadata):
         if 'all' in nb_md_filter or '-all' in nb_md_filter:
             return
         for key in metadata:
-            if key in _DEFAULT_NOTEBOOK_METADATA or key in nb_md_filter or ('-' + key) in nb_md_filter:
+            if key in _DEFAULT_NOTEBOOK_METADATA.split(',') or key in nb_md_filter or ('-' + key) in nb_md_filter:
                 continue
             nb_md_filter.append(key)
         if nb_md_filter:

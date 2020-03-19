@@ -19,6 +19,13 @@ from .stringparser import StringParser
 from .languages import _SCRIPT_EXTENSIONS, _COMMENT_CHARS, same_language
 from .pandoc import pandoc_version, is_pandoc_available
 from .magics import is_magic
+from .myst import (
+    MYST_FORMAT_NAME,
+    is_myst_available,
+    myst_version,
+    myst_extensions,
+    matches_mystnb,
+)
 
 
 class JupytextFormatError(ValueError):
@@ -162,6 +169,15 @@ if is_pandoc_available():
         cell_exporter_class=None,
         current_version_number=pandoc_version()))
 
+if is_myst_available():
+    JUPYTEXT_FORMATS.extend([NotebookFormatDescription(
+        format_name=MYST_FORMAT_NAME,
+        extension=ext,
+        header_prefix='',
+        cell_reader_class=None,
+        cell_exporter_class=None,
+        current_version_number=myst_version()) for ext in myst_extensions()])
+
 NOTEBOOK_EXTENSIONS = list(dict.fromkeys(['.ipynb'] + [fmt.extension for fmt in JUPYTEXT_FORMATS]))
 EXTENSION_PREFIXES = ['.lgt', '.spx', '.pct', '.hyd', '.nb']
 
@@ -181,6 +197,8 @@ def get_format_implementation(ext, format_name=None):
     if formats_for_extension:
         if ext in ['.md', '.markdown'] and format_name == 'pandoc':
             raise JupytextFormatError('Please install pandoc>=2.7.2')
+        if ext in myst_extensions() and format_name == MYST_FORMAT_NAME:
+            raise JupytextFormatError('Please install myst-parser')
 
         raise JupytextFormatError("Format '{}' is not associated to extension '{}'. "
                                   "Please choose one of: {}.".format(format_name, ext,
@@ -214,6 +232,8 @@ def read_format_from_metadata(text, ext):
 
 def guess_format(text, ext):
     """Guess the format and format options of the file, given its extension and content"""
+    if matches_mystnb(text, ext):
+        return MYST_FORMAT_NAME, {}
     lines = text.splitlines()
 
     metadata = read_metadata(text, ext)
@@ -448,11 +468,14 @@ def long_form_one_format(jupytext_format, metadata=None, update=None, auto_ext_r
     if not jupytext_format:
         return {}
 
-    common_name_to_ext = {'notebook': 'ipynb',
-                          'rmarkdown': 'Rmd',
-                          'markdown': 'md',
-                          'script': 'auto',
-                          'c++': 'cpp'}
+    common_name_to_ext = {
+        'notebook': 'ipynb',
+        'rmarkdown': 'Rmd',
+        'markdown': 'md',
+        'script': 'auto',
+        'c++': 'cpp',
+        'myst': 'md'
+    }
     if jupytext_format.lower() in common_name_to_ext:
         jupytext_format = common_name_to_ext[jupytext_format.lower()]
 
@@ -524,7 +547,7 @@ def short_form_one_format(jupytext_format):
 
     if jupytext_format.get('format_name'):
         if jupytext_format['extension'] not in ['.md', '.markdown', '.Rmd'] or \
-                jupytext_format['format_name'] == 'pandoc':
+                jupytext_format['format_name'] in ['pandoc', MYST_FORMAT_NAME]:
             fmt = fmt + ':' + jupytext_format['format_name']
 
     return fmt

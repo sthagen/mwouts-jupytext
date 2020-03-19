@@ -30,6 +30,13 @@ except jupytext.formats.JupytextFormatError as err:
     print(str(err))
 
 
+# Let's see if we have myst-parser installed here
+try:
+    jupytext.writes(notebook, fmt='myst')
+    JUPYTEXT_FORMATS.append('myst')
+except jupytext.formats.JupytextFormatError as err:
+    print(str(err))
+
 # -
 
 

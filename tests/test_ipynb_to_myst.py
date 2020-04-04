@@ -4,9 +4,7 @@ except ImportError:
     import mock
 from textwrap import dedent
 import pytest
-from nbformat import from_dict
 
-from jupytext.compare import compare_notebooks
 from jupytext.formats import get_format_implementation, JupytextFormatError
 from jupytext.myst import (
     myst_to_notebook,
@@ -40,7 +38,7 @@ def test_bad_code_metadata():
         myst_to_notebook(
             dedent(
                 """\
-            ```{{{0}}}
+            ```{0}
             ---
             {{a
             ---
@@ -105,6 +103,16 @@ def test_matches_mystnb():
         """
     )
     assert matches_mystnb(text) is True
+    text = dedent(
+        """\
+        ---
+        a: 1
+        ---
+        > ```{code-cell}
+          ```
+        """
+    )
+    assert matches_mystnb(text) is True
 
 
 def test_not_installed():
@@ -114,8 +122,8 @@ def test_not_installed():
 
 
 @requires_myst
-def test_store_line_numbers():
-    notebook = matches_mystnb(
+def test_add_source_map():
+    notebook = myst_to_notebook(
         dedent(
             """\
             ---
@@ -124,7 +132,7 @@ def test_store_line_numbers():
             abc
             +++
             def
-            ```{{{0}}}
+            ```{0}
             ---
             b: 2
             ---
@@ -133,37 +141,6 @@ def test_store_line_numbers():
             xyz
             """
         ).format(CODE_DIRECTIVE),
-        store_line_numbers=True,
-        return_nb=True
+        add_source_map=True,
     )
-    expected = {
-        "nbformat": 4,
-        "nbformat_minor": 4,
-        "metadata": {"a": 1},
-        "cells": [
-            {
-                "cell_type": "markdown",
-                "source": "abc",
-                "metadata": {"_source_lines": [3, 4]},
-            },
-            {
-                "cell_type": "markdown",
-                "source": "def",
-                "metadata": {"_source_lines": [5, 6]},
-            },
-            {
-                "cell_type": "code",
-                "metadata": {"b": 2, "_source_lines": [7, 12]},
-                "execution_count": None,
-                "source": "c = 3",
-                "outputs": [],
-            },
-            {
-                "cell_type": "markdown",
-                "source": "xyz",
-                "metadata": {"_source_lines": [12, 13]},
-            },
-        ],
-    }
-    notebook.nbformat_minor = 4
-    compare_notebooks(notebook, from_dict(expected))
+    assert notebook.metadata.source_map == [3, 5, 7, 12]

@@ -1,9 +1,11 @@
 ![](https://raw.githubusercontent.com/mwouts/jupytext/master/docs/logo.png)
 
-[![Build Status](https://travis-ci.com/mwouts/jupytext.svg?branch=master)](https://travis-ci.com/mwouts/jupytext)
+![CI (pip)](https://github.com/mwouts/jupytext/workflows/CI%20(pip)/badge.svg)
+![CI (conda)](https://github.com/mwouts/jupytext/workflows/CI%20(conda)/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/jupytext/badge/?version=latest)](https://jupytext.readthedocs.io/en/latest/?badge=latest)
 [![codecov.io](https://codecov.io/github/mwouts/jupytext/coverage.svg?branch=master)](https://codecov.io/github/mwouts/jupytext?branch=master)
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/mwouts/jupytext.svg)](https://lgtm.com/projects/g/mwouts/jupytext/context:python)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 ![GitHub language count](https://img.shields.io/github/languages/count/mwouts/jupytext)
 
 Have you always wished Jupyter notebooks were plain text documents? Wished you could edit them in your favorite IDE? And get clear and meaningful diffs when doing version control? Then... Jupytext may well be the tool you're looking for!
@@ -34,6 +36,7 @@ Looking for a demo?
 - Read the original [announcement](https://towardsdatascience.com/introducing-jupytext-9234fdff6c57) in _Towards Data Science_ (Sept. 2018),
 - Watch the [PyParis talk](https://github.com/mwouts/jupytext_pyparis_2018/blob/master/README.md) (Nov. 2018),
 - Read our article on [Jupytext and Papermill](https://medium.com/capital-fund-management/automated-reports-with-jupyter-notebooks-using-jupytext-and-papermill-619e60c37330) in _CFM Insights_ (Sept. 2019)
+- See how you can edit [Jupyter Notebooks in VS Code or PyCharm](https://towardsdatascience.com/jupyter-notebooks-in-the-ide-visual-studio-code-versus-pycharm-5e72218eb3e8) with (or without!) Jupytext (Jan. 2020)
 - or, try Jupytext online with [binder](https://mybinder.org/v2/gh/mwouts/jupytext/master?urlpath=lab/tree/demo/get_started.ipynb)!
 
 ## Installation
@@ -92,9 +95,9 @@ In JupyterLab, Jupytext adds a set of commands to the command palette:
 
 ![JupyterLab extension](https://raw.githubusercontent.com/mwouts/jupyterlab-jupytext/master/jupytext_commands.png)
 
-The lab extension is included in the Python package. Unless you need to use an older version of the extension you don't have to either install or update the extension manually from [npm](https://www.npmjs.com/). 
- 
-If you are wondering why the npm and the Python packages have different version, it's because the npm package is updated less often than the Python one. The latest versions are respectively [![npm version](https://badge.fury.io/js/jupyterlab-jupytext.svg)](https://badge.fury.io/js/jupyterlab-jupytext) and [![Pypi](https://img.shields.io/pypi/v/jupytext.svg)](https://pypi.python.org/pypi/jupytext). 
+The lab extension is included in the Python package. Unless you need to use an older version of the extension you don't have to either install or update the extension manually from [npm](https://www.npmjs.com/).
+
+If you are wondering why the npm and the Python packages have different version, it's because the npm package is updated less often than the Python one. The latest versions are respectively [![npm version](https://badge.fury.io/js/jupyterlab-jupytext.svg)](https://badge.fury.io/js/jupyterlab-jupytext) and [![Pypi](https://img.shields.io/pypi/v/jupytext.svg)](https://pypi.python.org/pypi/jupytext).
 
 Installing Jupytext will trigger a build of JupyterLab the next time you open it. If you prefer, you can trigger the build manually with
 ```
@@ -104,7 +107,7 @@ jupyter lab build
 The version of the extension that is shipped with Jupytext requires JupyterLab 1.0. If you prefer to continue using JupyterLab in version 0.35, you should install the version 0.19 of the extension:
 ```
 jupyter labextension install jupyterlab-jupytext@0.19
-``` 
+```
 
 ## Using Jupytext
 
@@ -130,7 +133,7 @@ The package provides a `jupytext` script for command line conversion between the
 ```bash
 jupytext --to py notebook.ipynb                 # convert notebook.ipynb to a .py file
 jupytext --to notebook notebook.py              # convert notebook.py to an .ipynb file with no outputs
-jupytext --to notebook --execute notebook.md    # convert notebook.md to an .ipynb file and run it 
+jupytext --to notebook --execute notebook.md    # convert notebook.md to an .ipynb file and run it
 jupytext --update --to notebook notebook.py     # update the input cells in the .ipynb file and preserve outputs and metadata
 jupytext --set-formats ipynb,py notebook.ipynb  # Turn notebook.ipynb into a paired ipynb/py notebook
 jupytext --sync notebook.ipynb                  # Update all paired representations of notebook.ipynb

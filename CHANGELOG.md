@@ -1,4 +1,17 @@
-1.4.2 (2020-04-??)
+1.5.0 (2020-05-??)
+------------------
+
+**Added**
+- Jupytext is tested in `pip` and `conda` environments, on Linux, Mac OS and Windows, using Github actions (#487)
+- Pre-commit checks and automatic reformatting of Jupytext's code with `pre-commit`, `black` and `flake8` (#483)
+- Groovy and Java are now supported, thanks to Przemek Wesołek's contribution (#500)
+- Mention that the YAML header can be created with either `--set-kernel`, `--set-formats`, or both (#485)
+- Mention that one should use double quotes, not single quotes, around `jupytext --check` commands like `"pytest {}"` on Windows (#475)
+
+**Fixed**
+- Skip the `jupytext --execute` tests when the warning _Timeout waiting for IOPub output_ occurs, which is the case intermittently on Windows (#489)
+
+1.4.2 (2020-04-05)
 ------------------
 
 **Added**
@@ -6,14 +19,14 @@
 - Added an example with custom cell tags (#478)
 
 **Changed**
-- Use `os.path.samefile` when searching for the kernel that corresponds to the current environment (`--set-kernel -`)
 - The outputs from the `.ipynb` file are matched with the input cells from the text file with less strict rules. In this version, a search and replace on the text file will not remove the outputs any more (#464).
 - Update parsing of myst notebooks to new (markdown-it based) parser (please upgrade to `myst-parser` to version `~0.8`) (#473)
+- Use `os.path.samefile` when searching for the kernel that corresponds to the current environment (`--set-kernel -`)
 
 **Fixed**
 - Fixed the CLI example for not commenting out magic commands: `--opt comment_magics=false`. In addition, most of the `jupytext` commands in `using-cli.md` are now tested! (#465)
 - `jupytext.read` and `jupytext.write` now give more meaningful errors when the format information is incorrect (#462)
-- Multiline comments starting with quadruple quotes should not cause issues anymore (#460)
+- Multiline comments starting or ending with quadruple quotes should not cause issues anymore (#460)
 - Fixed active cells in the py:percent format (#477)
 
 1.4.1 (2020-03-19)
@@ -25,7 +38,7 @@
 
 **Fixed**
 - When using `jupytext --pipe cmd`, the output of `cmd` should not appear in the terminal (#432)
- 
+
 
 1.4.0 (2020-03-09)
 ------------------
@@ -49,10 +62,10 @@
 ------------------
 
 **Added**
-- C# and F# Jupyter notebooks are now supported (#427, #429) 
+- C# and F# Jupyter notebooks are now supported (#427, #429)
 
 **Fixed**
-- `jupytext --to script *.ipynb` now computes the script extension for each notebook (#428) 
+- `jupytext --to script *.ipynb` now computes the script extension for each notebook (#428)
 - Fix shebang handling for languages with non-# comments, by Jonas Bushart (#434)
 - Indented bash commands are now commented out (#437)
 - The main formats are documented in `jupytext --help` (#426, #433)

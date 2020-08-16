@@ -4,6 +4,7 @@ import os
 from .formats import long_form_one_format, long_form_multiple_formats
 from .formats import short_form_one_format, short_form_multiple_formats
 from .formats import NOTEBOOK_EXTENSIONS
+from .config import find_jupytext_configuration_file
 
 
 class InconsistentPath(ValueError):
@@ -11,9 +12,27 @@ class InconsistentPath(ValueError):
     information it contains"""
 
 
+def split(path):
+    """Split the current path in parent path / current directory or file, using either / or the local path separator"""
+    if "/" not in path and os.path.sep not in path:
+        return "", path
+
+    if path.rfind("/") < path.rfind(os.path.sep):
+        return path.rsplit(os.path.sep, 1)
+
+    return path.rsplit("/", 1)
+
+
+def separator(path):
+    """Return the local path separator (always / in the contents manager)"""
+    if os.path.sep == "\\" and "\\" in path:
+        return "\\"
+    return "/"
+
+
 def base_path(main_path, fmt):
     """Given a path and options for a format (ext, suffix, prefix), return the corresponding base path"""
-    if not fmt:
+    if not fmt or (isinstance(fmt, dict) and "extension" not in fmt):
         base, ext = os.path.splitext(main_path)
         if ext not in NOTEBOOK_EXTENSIONS:
             raise InconsistentPath(
@@ -48,9 +67,21 @@ def base_path(main_path, fmt):
     if not prefix:
         return base
 
-    prefix_dir, prefix_file_name = os.path.split(prefix)
-    notebook_dir, notebook_file_name = os.path.split(base)
-    sep = base[len(notebook_dir) : -len(notebook_file_name)]
+    if "//" in prefix:
+        prefix_root, prefix = prefix.rsplit("//", 1)
+    else:
+        prefix_root = ""
+    prefix_dir, prefix_file_name = split(prefix)
+    notebook_dir, notebook_file_name = split(base)
+    sep = separator(base)
+
+    base_dir = None
+    config_file = find_jupytext_configuration_file(notebook_dir)
+    if config_file:
+        config_file_dir = os.path.dirname(config_file)
+        if notebook_dir.startswith(config_file_dir):
+            base_dir = config_file_dir
+            notebook_dir = notebook_dir[len(config_file_dir) :]
 
     if prefix_file_name:
         if not notebook_file_name.startswith(prefix_file_name):
@@ -62,20 +93,55 @@ def base_path(main_path, fmt):
         notebook_file_name = notebook_file_name[len(prefix_file_name) :]
 
     if prefix_dir:
-        if not notebook_dir.endswith(prefix_dir):
+        parent_notebook_dir = notebook_dir
+        parent_prefix_dir = prefix_dir
+        actual_folders = list()
+        while parent_prefix_dir:
+            parent_prefix_dir, expected_folder = os.path.split(parent_prefix_dir)
+            if expected_folder == "..":
+                if not actual_folders:
+                    raise InconsistentPath(
+                        u"Notebook directory '{}' does not match prefix '{}'".format(
+                            notebook_dir, prefix_dir
+                        )
+                    )
+                parent_notebook_dir = os.path.join(
+                    parent_notebook_dir, actual_folders.pop()
+                )
+            else:
+                parent_notebook_dir, actual_folder = os.path.split(parent_notebook_dir)
+                actual_folders.append(actual_folder)
+
+                if actual_folder != expected_folder:
+                    raise InconsistentPath(
+                        u"Notebook directory '{}' does not match prefix '{}'".format(
+                            notebook_dir, prefix_dir
+                        )
+                    )
+        notebook_dir = parent_notebook_dir
+
+    if prefix_root:
+        long_prefix_root = sep + prefix_root + sep
+        long_notebook_dir = sep + notebook_dir + sep
+        if long_prefix_root not in long_notebook_dir:
             raise InconsistentPath(
-                u"Notebook directory '{}' was expected to end with directory prefix '{}'".format(
-                    notebook_dir, prefix_dir
+                u"Notebook directory '{}' does not match prefix root '{}'".format(
+                    notebook_dir, prefix_root
                 )
             )
-        notebook_dir = notebook_dir[: -len(prefix_dir)]
+        left, right = long_notebook_dir.rsplit(long_prefix_root, 1)
+        notebook_dir = left + sep + "//" + right
+
+        # We are going to remove the last char, but we need to insert it back in the end...
+        if not right:
+            sep = notebook_dir[-1]
+        notebook_dir = notebook_dir[len(sep) : -len(sep)]
+
+    if base_dir:
+        notebook_dir = base_dir + notebook_dir
 
     if not notebook_dir:
         return notebook_file_name
-
-    # Does notebook_dir ends with a path separator?
-    if notebook_dir[-1:] == sep:
-        return notebook_dir + notebook_file_name
 
     return notebook_dir + sep + notebook_file_name
 
@@ -89,20 +155,43 @@ def full_path(base, fmt):
     full = base
 
     if prefix:
-        prefix_dir, prefix_file_name = os.path.split(prefix)
-        notebook_dir, notebook_file_name = os.path.split(base)
+        if "//" in prefix:
+            prefix_root, prefix = prefix.rsplit("//", 1)
+        else:
+            prefix_root = ""
+        prefix_dir, prefix_file_name = split(prefix)
 
         # Local path separator (\\ on windows)
-        sep = base[len(notebook_dir) : -len(notebook_file_name)] or "/"
+        sep = separator(base)
         prefix_dir = prefix_dir.replace("/", sep)
+
+        if (prefix_root != "") != ("//" in base):
+            raise InconsistentPath(
+                u"Notebook base name '{}' is not compatible with fmt={}. Make sure you use prefix roots "
+                u"in either none, or all of the paired formats".format(
+                    base, short_form_one_format(fmt)
+                )
+            )
+        if prefix_root:
+            left, right = base.rsplit("//", 1)
+            right_dir, notebook_file_name = split(right)
+            notebook_dir = left + prefix_root + sep + right_dir
+        else:
+            notebook_dir, notebook_file_name = split(base)
 
         if prefix_file_name:
             notebook_file_name = prefix_file_name + notebook_file_name
 
         if prefix_dir:
+            dotdot = ".." + sep
+            while prefix_dir.startswith(dotdot):
+                prefix_dir = prefix_dir[len(dotdot) :]
+                notebook_dir = os.path.dirname(notebook_dir)
+
             # Do not add a path separator when notebook_dir is '/'
             if notebook_dir and not notebook_dir.endswith(sep):
                 notebook_dir = notebook_dir + sep
+
             notebook_dir = notebook_dir + prefix_dir
 
         if notebook_dir and not notebook_dir.endswith(sep):

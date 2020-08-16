@@ -1,22 +1,23 @@
 name: jupytext-dev
 channels:
-  - default
+  - defaults
   - conda-forge
 dependencies:
   - python
   - jupyter
   - jupyterlab
   - pyyaml
+  - toml
   - nbconvert
   - jupyter_contrib_nbextensions
   - pytest
   - pytest-xdist
   - pytest-cov
-  - codecov
   - pre-commit
   - pylint
   - flake8
   - black
+  - isort
   - autopep8
   - sphinx-gallery
   - nodejs<13
@@ -24,5 +25,11 @@ dependencies:
   - pip
   - setuptools
   - twine
-  - pandoc
+  - pandoc>=2.9
   - myst-parser
+  # make html in docs folder
+  - sphinx
+  - recommonmark
+  - pip:
+    - sphinx_copybutton
+    - sphinx_rtd_theme

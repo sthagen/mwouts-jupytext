@@ -10,7 +10,7 @@ Jupytext can save Jupyter notebooks as
 - Markdown and R Markdown documents,
 - Scripts in many languages.
 
-The languages that are currently supported by Jupytext are: Julia, Python, R, Bash, Scheme, Clojure, Matlab, Octave, C++, q/kdb+, IDL, TypeScript, Javascript, Scala, Rust/Evxcr, PowerShell, C#, F#, Robot Framework, Script of Script. Extending Jupytext to more languages should be easy - read more at [CONTRIBUTING.md](https://github.com/mwouts/jupytext/blob/master/CONTRIBUTING.md#). In addition, jupytext users can choose between two formats for notebooks as scripts:
+The languages that are currently supported by Jupytext are: Julia, Python, R, Bash, Scheme, Clojure, Matlab, Octave, C++, q/kdb+, IDL, TypeScript, Javascript, Scala, Rust/Evxcr, PowerShell, C#, F#, Robot Framework, Script of Script, Java, Groovy, Coconut. Extending Jupytext to more languages should be easy - read more at [CONTRIBUTING.md](https://github.com/mwouts/jupytext/blob/master/CONTRIBUTING.md#). In addition, jupytext users can choose between two formats for notebooks as scripts:
 - The `percent` format, compatible with several IDEs, including Spyder, Hydrogen, VScode and PyCharm. In that format, cells are delimited with a commented `%%`.
 - The `light` format, designed for this project. Use that format to open standard scripts as notebooks, or to save notebooks as scripts with few cell markers - none when possible.
 
@@ -23,7 +23,7 @@ for two-directional syncing between formats. See below for a quick demo.
 
 There are multiple ways to use `jupytext`:
 - **Directly from Jupyter Notebook or JupyterLab.** Jupytext provides a _contents manager_ that allows Jupyter to save your notebook to your favorite format (`.py`, `.R`, `.jl`, `.md`, `.Rmd`...) in addition to (or in place of) the traditional `.ipynb` file. The text representation can be edited in your favorite editor. When you're done, refresh the notebook in Jupyter: inputs cells are loaded from the text file, while output cells are reloaded from the `.ipynb` file if present. Refreshing preserves kernel variables, so you can resume your work in the notebook and run the modified cells without having to rerun the notebook in full.
-- **On the [command line](using-cli.md)**. `jupytext` converts Jupyter notebooks to their text representation, and back. The command line tool can act on notebooks in many ways. It can synchronize multiple representations of a notebook, pipe a notebook into a reformatting tool like `black`, etc... It can also work as a [pre-commit hook](using-cli.html#jupytext-as-a-git-pre-commit-hook) if you wish to automatically update the text representation when you commit the `.ipynb` file.
+- **On the [command line](using-cli.md)**. `jupytext` converts Jupyter notebooks to their text representation, and back. The command line tool can act on notebooks in many ways. It can synchronize multiple representations of a notebook, pipe a notebook into a reformatting tool like `black`, etc... It can also work as a [pre-commit hook](using-pre-commit.md) if you wish to automatically update the text representation when you commit the `.ipynb` file.
 - **in Vim**: edit your Jupyter notebooks, represented as a Markdown document, or a Python script, with [jupytext.vim](https://github.com/goerz/jupytext.vim).
 
 ## Jupytext formats

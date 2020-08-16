@@ -230,3 +230,30 @@ def g(x):
 """,
     )
     compare_notebooks(jupytext.reads(text, "py"), nb)
+
+
+def test_configure_magic(no_jupytext_version_number):
+    nb = new_notebook(
+        cells=[
+            new_code_cell(
+                """%%configure -f \\
+{"executorMemory": "3072M", "executorCores": 4, "numExecutors":10}"""
+            )
+        ]
+    )
+
+    text = jupytext.writes(nb, "py")
+    compare(
+        text,
+        """# %%configure -f \\
+# {"executorMemory": "3072M", "executorCores": 4, "numExecutors":10}
+""",
+    )
+    compare_notebooks(jupytext.reads(text, "py"), nb)
+
+
+def test_indented_magic():
+    assert is_magic("    !rm file", "python")
+    assert is_magic("    # !rm file", "python")
+    assert comment_magic(["    !rm file"]) == ["    # !rm file"]
+    assert uncomment_magic(["    # !rm file"]) == ["    !rm file"]

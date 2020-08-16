@@ -1,15 +1,64 @@
-1.5.0 (2020-05-??)
+1.6.0-dev (2020-08-??)
+----------------------
+
+**Added**
+- Activated GitHub code scanning alerts
+- New option `hide_notebook_metadata` to encapsulate the notebook metadata in an HTML comment (#527)
+- Tested `isort` on notebooks (#553)
+
+**Changed**
+- Install Jupytext from source on MyBinder to avoid cache issues (#567)
+- Skip the tests that execute a notebook on Windows to avoid timeout issues (#489)
+- The `# %%` cell marker has the same indentation as the first line in the cell (#562)
+
+**Fixed**
+- Configured coverage targets in `codecov.yml`
+- Only scripts can have an encoding comment, not Markdown or R Markdown files (#576)
+- Support spaces in `--pipe` commands (#562)
+
+
+1.5.2 (2020-07-21)
+------------------
+
+**Changed**
+- The documentation uses the Alabaster theme
+
+**Fixed**
+- Preserve indentation when commenting out magic commands (#437)
+- Fixed MyBinder - `jupytext.py` is not a configuration file (#559, #567)
+
+
+1.5.1 (2020-07-05)
+------------------
+
+**Fixed**
+- Added `toml` as a dependency (#552).
+- Filtered out `__pycache__` and `.pyc` files from the pip package.
+- Fixed coverage upload by adding `coverage` as a dependency to the conda CI workflow.
+- Fixed the conda CI / Python 2.7 job by explicitly installing `backports.functools_lru_cache` (#554).
+
+
+1.5.0 (2020-06-07)
 ------------------
 
 **Added**
+- Jupytext can use a local or global [configuration file](https://github.com/mwouts/jupytext/blob/master/docs/config.md) (#508)
+- Jupytext can pair notebooks in trees. Use e.g. `notebooks///ipynb,scripts///py:percent` if you want to replicate the tree of notebooks under `notebooks` in a folder named `scripts` (#424)
+- The extension for Jupyter Notebook has a _New Text Notebook_ menu that creates text-only notebooks (#443)
+- Groovy and Java are now supported, thanks to Przemek Wesołek (#500)
+- The Coconut language is also supported, thanks to Thurston Sexton (#532)
+- Resource files with `.resource` extension from the Robot Framework are supported, thanks to Hiski Valli (#535)
 - Jupytext is tested in `pip` and `conda` environments, on Linux, Mac OS and Windows, using Github actions (#487)
-- Pre-commit checks and automatic reformatting of Jupytext's code with `pre-commit`, `black` and `flake8` (#483)
-- Groovy and Java are now supported, thanks to Przemek Wesołek's contribution (#500)
-- Mention that the YAML header can be created with either `--set-kernel`, `--set-formats`, or both (#485)
-- Mention that one should use double quotes, not single quotes, around `jupytext --check` commands like `"pytest {}"` on Windows (#475)
+- Jupytext uses pre-commit checks and automatic reformatting with `pre-commit`, `black` and `flake8` (#483)
+- Documentation improvements:
+  - Mention that the YAML header can be created with either `--set-kernel`, `--set-formats`, or both (#485)
+  - Mention that one should use double quotes, not single quotes, around `jupytext --check` commands like `"pytest {}"` on Windows (#475)
+  - Improved error message when a file is in a version that can't be read by Jupytext (#531)
 
 **Fixed**
 - Skip the `jupytext --execute` tests when the warning _Timeout waiting for IOPub output_ occurs, which is the case intermittently on Windows (#489)
+- Fixed wrong paired paths when syncing with the --pre-commit flag (#506)
+
 
 1.4.2 (2020-04-05)
 ------------------

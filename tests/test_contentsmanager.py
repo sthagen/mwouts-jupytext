@@ -1667,10 +1667,10 @@ def test_multiple_pairing(tmpdir):
     model_md = cm.get("notebook.md", content=False, load_alternative_format=False)
     model_py = cm.get("notebook.py", content=False, load_alternative_format=False)
 
-    # ipynb is the older, then py, then md
+    # ipynb is the oldest one, then py, then md
     # so that we read cell inputs from the py file
-    assert model_ipynb["last_modified"] < model_py["last_modified"]
-    assert model_py["last_modified"] < model_md["last_modified"]
+    assert model_ipynb["last_modified"] <= model_py["last_modified"]
+    assert model_py["last_modified"] <= model_md["last_modified"]
 
 
 @skip_if_dict_is_not_ordered
@@ -1702,3 +1702,13 @@ def test_filter_jupytext_version_information_416(nb_file, tmpdir):
     assert "jupytext:" in text
     assert "kernelspec:" in text
     assert "jupytext_version:" not in text
+
+
+def test_new_untitled(tmpdir):
+    cm = jupytext.TextFileContentsManager()
+    cm.root_dir = str(tmpdir)
+
+    assert cm.new_untitled(type="notebook")["path"] == "Untitled.ipynb"
+    assert cm.new_untitled(type="notebook", ext=".md")["path"] == "Untitled1.md"
+    assert cm.new_untitled(type="notebook", ext=".py")["path"] == "Untitled2.py"
+    assert cm.new_untitled(type="notebook")["path"] == "Untitled3.ipynb"

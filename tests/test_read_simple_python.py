@@ -10,6 +10,7 @@ from jupytext.compare import compare
 import jupytext
 from jupytext.compare import compare_notebooks
 from .utils import skip_if_dict_is_not_ordered
+import pytest
 
 
 def test_read_simple_file(
@@ -943,7 +944,7 @@ def test_round_trip_python_with_js_cell():
         cells=[
             new_code_cell(
                 """import notebook.nbextensions
-notebook.nbextensions.install_nbextension('jupytext.js', user=True)"""
+notebook.nbextensions.install_nbextension('index.js', user=True)"""
             ),
             new_code_cell(
                 """%%javascript
@@ -961,7 +962,7 @@ def test_round_trip_python_with_js_cell_no_cell_metadata():
         cells=[
             new_code_cell(
                 """import notebook.nbextensions
-notebook.nbextensions.install_nbextension('jupytext.js', user=True)"""
+notebook.nbextensions.install_nbextension('index.js', user=True)"""
             ),
             new_code_cell(
                 """%%javascript
@@ -1136,7 +1137,7 @@ except:
         ]
     ),
     text="""try:
-#     !echo jo
+    # !echo jo
     pass
 except:
     pass
@@ -1182,3 +1183,41 @@ def test_arg(arg):
         assert cell.cell_type == "code"
     assert nb.cells[0].source == "import pytest"
     assert nb.cells[0].metadata == {}
+
+
+@pytest.mark.parametrize(
+    "script,cell",
+    [
+        (
+            """if True:
+    # # !rm file 1
+    # !rm file 2
+""",
+            """if True:
+    # !rm file 1
+    !rm file 2""",
+        ),
+        (
+            """# +
+if True:
+    # help?
+    # ?help
+    # # ?help
+    # # help?
+""",
+            """if True:
+    help?
+    ?help
+    # ?help
+    # help?""",
+        ),
+    ],
+)
+def test_indented_magic_commands(script, cell):
+
+    nb = jupytext.reads(script, "py")
+    assert len(nb.cells) == 1
+    assert nb.cells[0].cell_type == "code"
+    compare(nb.cells[0].source, cell)
+    assert nb.cells[0].metadata == {}
+    compare(jupytext.writes(nb, "py"), script)

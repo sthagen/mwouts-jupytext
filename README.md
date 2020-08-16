@@ -3,7 +3,7 @@
 ![CI (pip)](https://github.com/mwouts/jupytext/workflows/CI%20(pip)/badge.svg)
 ![CI (conda)](https://github.com/mwouts/jupytext/workflows/CI%20(conda)/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/jupytext/badge/?version=latest)](https://jupytext.readthedocs.io/en/latest/?badge=latest)
-[![codecov.io](https://codecov.io/github/mwouts/jupytext/coverage.svg?branch=master)](https://codecov.io/github/mwouts/jupytext?branch=master)
+[![codecov.io](https://codecov.io/github/mwouts/jupytext/coverage.svg?branch=master)](https://codecov.io/gh/mwouts/jupytext/branch/master)
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/mwouts/jupytext.svg)](https://lgtm.com/projects/g/mwouts/jupytext/context:python)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 ![GitHub language count](https://img.shields.io/github/languages/count/mwouts/jupytext)
@@ -18,7 +18,7 @@ It can also convert these documents **into** Jupyter
 Notebooks, allowing you to synchronize content in both
 directions.
 
-The languages that are currently supported by Jupytext are: Julia, Python, R, Bash, Scheme, Clojure, Matlab, Octave, C++, q/kdb+, IDL, TypeScript, Javascript, Scala, Rust/Evxcr, PowerShell, C#, F#, Robot Framework, Script of Script. Extending Jupytext to more languages should be easy - read more at [CONTRIBUTING.md](https://github.com/mwouts/jupytext/blob/master/CONTRIBUTING.md). In addition, jupytext users can choose between two formats for notebooks as scripts:
+The languages that are currently supported by Jupytext are: Julia, Python, R, Bash, Scheme, Clojure, Matlab, Octave, C++, q/kdb+, IDL, TypeScript, Javascript, Scala, Rust/Evxcr, PowerShell, C#, F#, Robot Framework, Script of Script, Java, Groovy, Coconut. Extending Jupytext to more languages should be easy - read more at [CONTRIBUTING.md](https://github.com/mwouts/jupytext/blob/master/CONTRIBUTING.md). In addition, jupytext users can choose between two formats for notebooks as scripts:
 - The `percent` format, compatible with several IDEs, including Spyder, Hydrogen, VScode and PyCharm. In that format, cells are delimited with a commented `%%`.
 - The `light` format, designed for this project. Use that format to open standard scripts as notebooks, or to save notebooks as scripts with few cell markers - none when possible.
 
@@ -81,7 +81,7 @@ jupyter notebook # or lab
 
 Jupytext includes an extensions for Jupyter Notebook that adds a Jupytext section in the File menu.
 
-![Jupyter notebook extension](https://raw.githubusercontent.com/mwouts/jupytext_nbextension/master/jupytext_menu.png)
+![Jupyter notebook extension](https://raw.githubusercontent.com/mwouts/jupytext/master/jupytext/nbextension/jupytext_menu.png)
 
 If the extension was not automatically installed, install and activate it with
 ```
@@ -93,7 +93,7 @@ jupyter nbextension enable --py jupytext [--user]
 
 In JupyterLab, Jupytext adds a set of commands to the command palette:
 
-![JupyterLab extension](https://raw.githubusercontent.com/mwouts/jupyterlab-jupytext/master/jupytext_commands.png)
+![JupyterLab extension](https://raw.githubusercontent.com/mwouts/jupytext/master/packages/labextension/jupytext_commands.png)
 
 The lab extension is included in the Python package. Unless you need to use an older version of the extension you don't have to either install or update the extension manually from [npm](https://www.npmjs.com/).
 

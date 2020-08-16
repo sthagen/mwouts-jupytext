@@ -27,6 +27,7 @@ requires_jupytext_installed = pytest.mark.skipif(
     not tool_version("jupytext"), reason="jupytext is not installed"
 )
 requires_black = pytest.mark.skipif(not tool_version("black"), reason="black not found")
+requires_isort = pytest.mark.skipif(not tool_version("isort"), reason="isort not found")
 requires_flake8 = pytest.mark.skipif(
     not tool_version("flake8"), reason="flake8 not found"
 )
@@ -40,7 +41,8 @@ requires_sphinx_gallery = pytest.mark.skipif(
     not rst2md, reason="sphinx_gallery is not available"
 )
 requires_pandoc = pytest.mark.skipif(
-    not is_pandoc_available(), reason="pandoc>=2.7.2 is not available"
+    not is_pandoc_available() or sys.version_info < (3,),
+    reason="pandoc>=2.7.2 is not available",
 )
 requires_ir_kernel = pytest.mark.skipif(
     kernelspec_from_language("R") is None, reason="irkernel is not installed"
@@ -48,6 +50,7 @@ requires_ir_kernel = pytest.mark.skipif(
 requires_myst = pytest.mark.skipif(
     not is_myst_available(), reason="myst_parser not found"
 )
+skip_on_windows = pytest.mark.skipif(sys.platform.startswith("win"), reason="Issue 489")
 
 
 def list_notebooks(path="ipynb", skip="World"):

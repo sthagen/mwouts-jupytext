@@ -43,7 +43,6 @@ setup(
                 "jupytext/nbextension/index.js",
                 "jupytext/nbextension/README.md",
                 "jupytext/nbextension/jupytext_menu.png",
-                "jupytext/nbextension/jupytext_menu_zoom.png",
                 "jupytext/nbextension/jupytext.yml",
             ],
         ),
@@ -54,8 +53,11 @@ setup(
     ],
     entry_points={"console_scripts": ["jupytext = jupytext.cli:jupytext"]},
     tests_require=["pytest"],
-    install_requires=["nbformat>=4.0.0", "pyyaml", 'mock;python_version<"3"'],
-    extras_require={"myst": ["myst-parser~=0.8; python_version >= '3.6'"]},
+    install_requires=["nbformat>=4.0.0", "pyyaml", "toml", 'mock;python_version<"3"'],
+    extras_require={
+        "myst": ["myst-parser~=0.8; python_version >= '3.6'"],
+        "toml": ["toml"],
+    },
     license="MIT",
     classifiers=[
         "Development Status :: 5 - Production/Stable",

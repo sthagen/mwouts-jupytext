@@ -289,7 +289,6 @@ def test_combine_lower_version_raises(tmpdir):
         "This error occurs because notebook.py is in the light format in version 55.4, "
         "while jupytext version .* installed at .* can only read the light format in versions .*",
     ):
-
         jupytext([tmp_nbpy, "--to", "ipynb", "--update"])
 
 
@@ -1120,3 +1119,50 @@ def test_sync_script_dotdot_folder_564(tmpdir):
 
     jupytext(["--sync", str(py_file)])
     jupytext(["--sync", str(nb_file)])
+
+
+def test_jupytext_to_file_emits_a_warning(tmpdir):
+    """The user may type
+        jupytext notebook.ipynb --to script.py
+    meaning
+        jupytext notebook.ipynb -o script.py
+    """
+    os.chdir(str(tmpdir))
+
+    nb_file = tmpdir.join("notebook.ipynb")
+    write(new_notebook(), str(nb_file))
+
+    with pytest.warns(None) as record:
+        jupytext(["notebook.ipynb", "-o", "script.py"])
+
+    assert len(record) == 0
+
+    with pytest.warns(UserWarning, match="Maybe you want to use the '-o' option"):
+        jupytext(["notebook.ipynb", "--to", "script.py"])
+
+
+def test_jupytext_set_formats_file_gives_an_informative_error(tmpdir):
+    """The user may type
+        jupytext --set-formats notebook.md
+    meaning
+        jupytext --syn notebook.md
+    """
+    os.chdir(str(tmpdir))
+
+    cfg_file = tmpdir.join("jupytext.toml")
+    cfg_file.write('default_jupytext_formats = "md,ipynb,py:percent"')
+
+    md_file = tmpdir.join("notebook.md")
+    py_file = tmpdir.join("notebook.py")
+    nb_file = tmpdir.join("notebook.ipynb")
+    md_file.write("Some text")
+
+    with pytest.warns(None) as record:
+        jupytext(["--sync", "notebook.md"])
+
+    assert len(record) == 0
+    assert py_file.exists()
+    assert nb_file.exists()
+
+    with pytest.raises(ValueError, match="jupytext --sync notebook.md"):
+        jupytext(["--set-formats", "notebook.md"])

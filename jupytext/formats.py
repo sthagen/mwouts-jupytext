@@ -5,6 +5,7 @@ new formats here!
 
 import os
 import re
+import yaml
 import warnings
 import nbformat
 from .header import header_to_metadata_and_cell, insert_or_test_version_number
@@ -30,7 +31,7 @@ from .cell_to_text import (
 from .metadata_filter import metadata_filter_as_string
 from .stringparser import StringParser
 from .languages import _SCRIPT_EXTENSIONS, _COMMENT_CHARS, same_language
-from .pandoc import pandoc_version, is_pandoc_available
+from .pandoc import pandoc_version
 from .magics import is_magic
 from .myst import (
     MYST_FORMAT_NAME,
@@ -191,12 +192,7 @@ JUPYTEXT_FORMATS = (
             cell_exporter_class=SphinxGalleryCellExporter,
             # Version 1.0 on 2018-09-22 - jupytext v0.7.0rc0 : Initial version
             current_version_number="1.1",
-        )
-    ]
-)
-
-if is_pandoc_available():
-    JUPYTEXT_FORMATS.append(
+        ),
         NotebookFormatDescription(
             format_name="pandoc",
             extension=".md",
@@ -204,23 +200,20 @@ if is_pandoc_available():
             cell_reader_class=None,
             cell_exporter_class=None,
             current_version_number=pandoc_version(),
+        ),
+    ]
+    + [
+        NotebookFormatDescription(
+            format_name=MYST_FORMAT_NAME,
+            extension=ext,
+            header_prefix="",
+            cell_reader_class=None,
+            cell_exporter_class=None,
+            current_version_number=myst_version(),
         )
-    )
-
-if is_myst_available():
-    JUPYTEXT_FORMATS.extend(
-        [
-            NotebookFormatDescription(
-                format_name=MYST_FORMAT_NAME,
-                extension=ext,
-                header_prefix="",
-                cell_reader_class=None,
-                cell_exporter_class=None,
-                current_version_number=myst_version(),
-            )
-            for ext in myst_extensions()
-        ]
-    )
+        for ext in myst_extensions()
+    ]
+)
 
 NOTEBOOK_EXTENSIONS = list(
     dict.fromkeys([".ipynb"] + [fmt.extension for fmt in JUPYTEXT_FORMATS])
@@ -241,11 +234,6 @@ def get_format_implementation(ext, format_name=None):
             formats_for_extension.append(fmt.format_name)
 
     if formats_for_extension:
-        if ext in [".md", ".markdown"] and format_name == "pandoc":
-            raise JupytextFormatError("Please install pandoc>=2.7.2")
-        if ext in myst_extensions() and format_name == MYST_FORMAT_NAME:
-            raise JupytextFormatError("Please install myst-parser")
-
         raise JupytextFormatError(
             "Format '{}' is not associated to extension '{}'. "
             "Please choose one of: {}.".format(
@@ -269,6 +257,18 @@ def read_metadata(text, ext):
     if ext in [".r", ".R"] and not metadata:
         metadata, _, _, _ = header_to_metadata_and_cell(lines, "#'", ext)
 
+    # MyST has the metadata at the root level
+    if not metadata and ext in myst_extensions() and text.startswith("---"):
+        for header in yaml.safe_load_all(text):
+            if (
+                header.get("jupytext", {})
+                .get("text_representation", {})
+                .get("format_name")
+                == "myst"
+            ):
+                return header
+            return metadata
+
     return metadata
 
 
@@ -286,7 +286,7 @@ def guess_format(text, ext):
     if "text_representation" in metadata.get("jupytext", {}):
         return format_name_for_ext(metadata, ext), {}
 
-    if is_myst_available() and matches_mystnb(text, ext):
+    if is_myst_available() and ext in myst_extensions() and matches_mystnb(text, ext):
         return MYST_FORMAT_NAME, {}
 
     lines = text.splitlines()
@@ -398,8 +398,10 @@ def check_file_version(notebook, source_path, outputs_path):
         return
 
     _, ext = os.path.splitext(source_path)
-    if ext.endswith(".ipynb"):
-        return
+    assert not ext.endswith(".ipynb"), "source_path={} should be a text file".format(
+        source_path
+    )
+
     version = (
         notebook.metadata.get("jupytext", {})
         .get("text_representation", {})
@@ -693,15 +695,18 @@ _VALID_FORMAT_INFO = ["extension", "format_name", "suffix", "prefix"]
 _BINARY_FORMAT_OPTIONS = [
     "comment_magics",
     "hide_notebook_metadata",
+    "root_level_metadata_as_raw_cell",
     "split_at_heading",
     "rst2md",
     "cell_metadata_json",
     "use_runtools",
+    "doxygen_equation_markers",
 ]
 _VALID_FORMAT_OPTIONS = _BINARY_FORMAT_OPTIONS + [
     "notebook_metadata_filter",
     "cell_metadata_filter",
     "cell_markers",
+    "custom_cell_magics",
 ]
 _VALID_FORMAT_NAMES = {fmt.format_name for fmt in JUPYTEXT_FORMATS}
 

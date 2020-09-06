@@ -23,11 +23,22 @@ def tool_version(tool):
         return None
 
 
+def isort_version():
+    try:
+        import isort
+
+        return isort.__version__
+    except ImportError:
+        return None
+
+
 requires_jupytext_installed = pytest.mark.skipif(
     not tool_version("jupytext"), reason="jupytext is not installed"
 )
 requires_black = pytest.mark.skipif(not tool_version("black"), reason="black not found")
-requires_isort = pytest.mark.skipif(not tool_version("isort"), reason="isort not found")
+requires_isort = pytest.mark.skipif(
+    not isort_version() or isort_version() <= "5.3.0", reason="isort not found",
+)
 requires_flake8 = pytest.mark.skipif(
     not tool_version("flake8"), reason="flake8 not found"
 )
@@ -44,12 +55,16 @@ requires_pandoc = pytest.mark.skipif(
     not is_pandoc_available() or sys.version_info < (3,),
     reason="pandoc>=2.7.2 is not available",
 )
+requires_no_pandoc = pytest.mark.skipif(
+    is_pandoc_available(), reason="Pandoc is installed"
+)
 requires_ir_kernel = pytest.mark.skipif(
     kernelspec_from_language("R") is None, reason="irkernel is not installed"
 )
 requires_myst = pytest.mark.skipif(
     not is_myst_available(), reason="myst_parser not found"
 )
+requires_no_myst = pytest.mark.skipif(is_myst_available(), reason="myst is available")
 skip_on_windows = pytest.mark.skipif(sys.platform.startswith("win"), reason="Issue 489")
 
 

@@ -74,6 +74,14 @@ class JupytextConfiguration(Configurable):
         config=True,
     )
 
+    root_level_metadata_as_raw_cell = Bool(
+        True,
+        help="Should the root level metadata of text documents (like the fields 'title' or 'author' in "
+        "R Markdown document) appear as a raw cell in the notebook (True), or go to the notebook"
+        "metadata?",
+        config=True,
+    )
+
     default_cell_metadata_filter = Unicode(
         u"",
         help="Cell metadata that should be saved in the text representations. "
@@ -100,6 +108,13 @@ class JupytextConfiguration(Configurable):
         config=True,
     )
 
+    doxygen_equation_markers = Bool(
+        False,
+        help="Should equation markers use the DOxygen format? "
+        "(see https://github.com/mwouts/jupytext/issues/517)",
+        config=True,
+    )
+
     outdated_text_notebook_margin = Float(
         1.0,
         help="Refuse to overwrite inputs of a ipynb notebooks with those of a "
@@ -121,6 +136,14 @@ class JupytextConfiguration(Configurable):
         config=True,
     )
 
+    custom_cell_magics = Unicode(
+        "",
+        help='A comma separated list of cell magics. Use e.g. custom_cell_magics = "configure,local" '
+        'if you want code cells starting with the Spark magic cell commands "configure" and "local" '
+        "to be commented out when converted to scripts.",
+        config=True,
+    )
+
     def set_default_format_options(self, format_options, read=False):
         """Set default format option"""
         if self.default_notebook_metadata_filter:
@@ -135,14 +158,24 @@ class JupytextConfiguration(Configurable):
             format_options.setdefault(
                 "hide_notebook_metadata", self.hide_notebook_metadata
             )
+        if self.root_level_metadata_as_raw_cell is False:
+            format_options.setdefault(
+                "root_level_metadata_as_raw_cell", self.root_level_metadata_as_raw_cell
+            )
         if self.comment_magics is not None:
             format_options.setdefault("comment_magics", self.comment_magics)
         if self.split_at_heading:
             format_options.setdefault("split_at_heading", self.split_at_heading)
+        if self.doxygen_equation_markers:
+            format_options.setdefault(
+                "doxygen_equation_markers", self.doxygen_equation_markers
+            )
         if not read and self.default_cell_markers:
             format_options.setdefault("cell_markers", self.default_cell_markers)
         if read and self.sphinx_convert_rst2md:
             format_options.setdefault("rst2md", self.sphinx_convert_rst2md)
+        if self.custom_cell_magics:
+            format_options.setdefault("custom_cell_magics", self.custom_cell_magics)
 
     def default_formats(self, path):
         """Return the default formats, if they apply to the current path #157"""

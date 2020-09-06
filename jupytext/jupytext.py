@@ -82,7 +82,10 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
 
         cells = []
         metadata, jupyter_md, header_cell, pos = header_to_metadata_and_cell(
-            lines, self.implementation.header_prefix, self.implementation.extension
+            lines,
+            self.implementation.header_prefix,
+            self.implementation.extension,
+            self.fmt.get("root_level_metadata_as_raw_cell", True),
         )
         default_language = default_language_from_metadata_and_ext(
             metadata, self.implementation.extension
@@ -113,7 +116,10 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
                 )  # pragma: no cover
             lines = lines[pos:]
 
-        set_main_and_cell_language(metadata, cells, self.implementation.extension)
+        custom_cell_magics = self.fmt.get("custom_cell_magics", "").split(",")
+        set_main_and_cell_language(
+            metadata, cells, self.implementation.extension, custom_cell_magics
+        )
         cell_metadata = set()
         for cell in cells:
             cell_metadata.update(cell.metadata.keys())
@@ -242,7 +248,11 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
 
         header = encoding_and_executable(nb, metadata, self.ext)
         header_content, header_lines_to_next_cell = metadata_and_cell_to_header(
-            nb, metadata, self.implementation, self.ext
+            nb,
+            metadata,
+            self.implementation,
+            self.ext,
+            self.fmt.get("root_level_metadata_as_raw_cell", True),
         )
         header.extend(header_content)
 

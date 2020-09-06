@@ -15,6 +15,7 @@ from .magics import comment_magic, escape_code_start, need_explicit_marker
 from .cell_reader import LightScriptCellReader, MarkdownCellReader, RMarkdownCellReader
 from .languages import _SCRIPT_EXTENSIONS
 from .pep8 import pep8_lines_between_cells
+from .doxygen import markdown_to_doxygen
 
 
 def cell_source(cell):
@@ -43,7 +44,10 @@ class BaseCellExporter(object):
             cell.metadata, self.fmt.get("cell_metadata_filter"), _IGNORE_CELL_METADATA
         )
         if self.parse_cell_language:
-            self.language, magic_args = cell_language(self.source, default_language)
+            custom_cell_magics = self.fmt.get("custom_cell_magics", "").split(",")
+            self.language, magic_args = cell_language(
+                self.source, default_language, custom_cell_magics
+            )
 
             if magic_args:
                 self.metadata["magic_args"] = magic_args
@@ -61,6 +65,7 @@ class BaseCellExporter(object):
         )
         self.cell_metadata_json = self.fmt.get("cell_metadata_json", False)
         self.use_runtools = self.fmt.get("use_runtools", False)
+        self.doxygen_equation_markers = self.fmt.get("doxygen_equation_markers", False)
 
         # how many blank lines before next cell
         self.lines_to_next_cell = cell.metadata.get("lines_to_next_cell")
@@ -185,6 +190,9 @@ class MarkdownCellExporter(BaseCellExporter):
     def cell_to_text(self):
         """Return the text representation of a cell"""
         if self.cell_type == "markdown":
+            if self.doxygen_equation_markers and self.cell_type == "markdown":
+                self.source = markdown_to_doxygen("\n".join(self.source)).splitlines()
+
             # Is an explicit region required?
             if self.metadata:
                 protect = True
@@ -506,7 +514,7 @@ class SphinxGalleryCellExporter(BaseCellExporter):  # pylint: disable=W0223
             raise ValueError(
                 "The 'rst2md' option is a read only option. The reverse conversion is not "
                 "implemented. Please either deactivate the option, or save to another format."
-            )
+            )  # pragma: no cover
 
     def cell_to_text(self):
         """Return the text representation for the cell"""

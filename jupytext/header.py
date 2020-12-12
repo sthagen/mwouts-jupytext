@@ -138,7 +138,7 @@ def metadata_and_cell_to_header(
 
 
 def recursive_update(target, update):
-    """ Update recursively a (nested) dictionary with the content of another.
+    """Update recursively a (nested) dictionary with the content of another.
     Inspired from https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
     """
     for key in update:
@@ -209,11 +209,10 @@ def header_to_metadata_and_cell(
             if not started:
                 started = True
                 continue
-            else:
-                ended = True
-                if in_html_div:
-                    continue
-                break
+            ended = True
+            if in_html_div:
+                continue
+            break
 
         if _JUPYTER_RE.match(line):
             in_jupyter = True

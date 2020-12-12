@@ -5,10 +5,7 @@ import sys
 import time
 from io import StringIO
 
-try:
-    import unittest.mock as mock
-except ImportError:
-    import mock
+import unittest.mock as mock
 import pytest
 import nbformat
 import itertools
@@ -1166,3 +1163,6 @@ def test_jupytext_set_formats_file_gives_an_informative_error(tmpdir):
 
     with pytest.raises(ValueError, match="jupytext --sync notebook.md"):
         jupytext(["--set-formats", "notebook.md"])
+
+    # Remove the config file, otherwise test_jupytext_jupyter_fs_metamanager fails later on!
+    cfg_file.remove()

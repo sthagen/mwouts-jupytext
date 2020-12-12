@@ -19,13 +19,10 @@ from jupytext.languages import _SCRIPT_EXTENSIONS
 from jupytext.paired_paths import full_path
 from .utils import (
     list_notebooks,
-    skip_if_dict_is_not_ordered,
     requires_pandoc,
     requires_sphinx_gallery,
     requires_myst,
 )
-
-pytestmark = skip_if_dict_is_not_ordered
 
 
 def create_mirror_file_if_missing(mirror_file, notebook, fmt):
@@ -94,7 +91,7 @@ def assert_conversion_same_as_mirror(nb_file, fmt, mirror_name, compare_notebook
 
         compare_notebooks(nb_mirror, notebook, fmt)
 
-        combine_inputs_with_outputs(nb_mirror, notebook)
+        nb_mirror = combine_inputs_with_outputs(nb_mirror, notebook)
         compare_notebooks(nb_mirror, notebook, fmt, compare_outputs=True)
 
 

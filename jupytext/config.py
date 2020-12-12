@@ -1,15 +1,22 @@
 """Find and read Jupytext configuration files"""
 import os
 import yaml
+import json
 from traitlets import Unicode, Float, Bool, Enum
 from traitlets.config import Configurable
-from traitlets.config.loader import JSONFileConfigLoader, PyFileConfigLoader
+from traitlets.config.loader import PyFileConfigLoader
+from traitlets.traitlets import TraitError
 from .formats import (
     NOTEBOOK_EXTENSIONS,
     long_form_one_format,
     long_form_multiple_formats,
     rearrange_jupytext_metadata,
 )
+
+
+class JupytextConfigurationError(ValueError):
+    """Error in the specification of the format for the text notebook"""
+
 
 JUPYTEXT_CONFIG_FILES = [
     "jupytext",
@@ -284,28 +291,31 @@ def find_jupytext_configuration_file(path, search_parent_dirs=True):
     return find_jupytext_configuration_file(parent_dir)
 
 
-def load_jupytext_configuration_file(jupytext_config_file):
-    """Read a Jupytext config file, and return a JupytextConfig object"""
-
-    if jupytext_config_file.endswith((".toml", "jupytext")):
-        import toml
-
-        config = toml.load(jupytext_config_file)
-        return JupytextConfiguration(**config)
-
-    if jupytext_config_file.endswith((".yml", ".yaml")):
+def load_jupytext_configuration_file(jupytext_config_file, stream=None):
+    """Read a Jupytext config file, and return a dict"""
+    if not jupytext_config_file.endswith(".py") and stream is None:
         with open(jupytext_config_file) as stream:
-            config = yaml.safe_load(stream)
-        return JupytextConfiguration(**config)
+            return load_jupytext_configuration_file(jupytext_config_file, stream.read())
 
-    if jupytext_config_file.endswith(".py"):
-        return JupytextConfiguration(
-            **PyFileConfigLoader(jupytext_config_file).load_config()
+    try:
+        if jupytext_config_file.endswith((".toml", "jupytext")):
+            import toml
+
+            return toml.loads(stream)
+
+        if jupytext_config_file.endswith((".yml", ".yaml")):
+            return yaml.safe_load(stream)
+
+        if jupytext_config_file.endswith(".json"):
+            return json.loads(stream)
+
+        return PyFileConfigLoader(jupytext_config_file).load_config()
+    except (ValueError, NameError) as err:
+        raise JupytextConfigurationError(
+            "The Jupytext configuration file {} is incorrect: {}".format(
+                jupytext_config_file, err
+            )
         )
-
-    return JupytextConfiguration(
-        **JSONFileConfigLoader(jupytext_config_file).load_config()
-    )
 
 
 def load_jupytext_config(nb_file):
@@ -315,7 +325,31 @@ def load_jupytext_config(nb_file):
         return None
     if os.path.isfile(nb_file) and os.path.samefile(config_file, nb_file):
         return None
-    return load_jupytext_configuration_file(config_file)
+    config_file = find_jupytext_configuration_file(nb_file)
+    config_dict = load_jupytext_configuration_file(config_file)
+    return validate_jupytext_configuration_file(config_file, config_dict)
+
+
+def validate_jupytext_configuration_file(config_file, config_dict):
+    """Turn a dict-like config into a JupytextConfiguration object"""
+    if config_dict is None:
+        return None
+    try:
+        config = JupytextConfiguration(**config_dict)
+    except TraitError as err:
+        raise JupytextConfigurationError(
+            "The Jupytext configuration file {} is incorrect: {}".format(
+                config_file, err
+            )
+        )
+    invalid_options = set(config_dict).difference(dir(JupytextConfiguration()))
+    if any(invalid_options):
+        raise JupytextConfigurationError(
+            "The Jupytext configuration file {} is incorrect: options {} are not supported".format(
+                config_file, ",".join(invalid_options)
+            )
+        )
+    return config
 
 
 def prepare_notebook_for_save(nbk, config, path):

@@ -3,17 +3,14 @@
 import os
 import stat
 
-try:
-    import unittest.mock as mock
-except ImportError:
-    import mock
+import unittest.mock as mock
 import pytest
 from jupytext.compare import compare
 from nbformat.v4.nbbase import new_notebook, new_markdown_cell, new_code_cell
 from jupytext import read, write
 from jupytext.cli import jupytext, system
 from jupytext.compare import compare_notebooks
-from .utils import list_notebooks, skip_if_dict_is_not_ordered
+from .utils import list_notebooks
 from .utils import requires_black, requires_flake8, requires_pandoc
 from .utils import requires_jupytext_installed
 
@@ -35,7 +32,6 @@ def git_in_tmpdir(tmpdir):
 
 
 @requires_jupytext_installed
-@skip_if_dict_is_not_ordered
 def test_pre_commit_hook(tmpdir):
     tmp_ipynb = str(tmpdir.join("nb with spaces.ipynb"))
     tmp_py = str(tmpdir.join("nb with spaces.py"))
@@ -63,7 +59,6 @@ def test_pre_commit_hook(tmpdir):
 
 
 @requires_jupytext_installed
-@skip_if_dict_is_not_ordered
 def test_sync_with_pre_commit_hook(tmpdir):
     # Init git and create a pre-commit hook
     git = git_in_tmpdir(tmpdir)
@@ -141,7 +136,6 @@ def test_sync_with_pre_commit_hook(tmpdir):
 
 
 @requires_jupytext_installed
-@skip_if_dict_is_not_ordered
 def test_pre_commit_hook_in_subfolder(tmpdir):
     tmp_ipynb = str(tmpdir.join("nb with spaces.ipynb"))
     tmp_py = str(tmpdir.join("python", "nb with spaces.py"))
@@ -171,7 +165,6 @@ def test_pre_commit_hook_in_subfolder(tmpdir):
 
 
 @requires_jupytext_installed
-@skip_if_dict_is_not_ordered
 def test_pre_commit_hook_py_to_ipynb_and_md(tmpdir):
     tmp_ipynb = str(tmpdir.join("nb with spaces.ipynb"))
     tmp_py = str(tmpdir.join("nb with spaces.py"))

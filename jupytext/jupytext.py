@@ -4,7 +4,6 @@ import os
 import io
 import sys
 import logging
-import warnings
 from copy import copy, deepcopy
 from nbformat.v4.rwbase import NotebookReader, NotebookWriter
 from nbformat.v4.nbbase import new_notebook, new_code_cell, NotebookNode
@@ -369,8 +368,7 @@ def reads(text, fmt, as_version=nbformat.NO_CONVERT, **kwargs):
 
 
 def read(fp, as_version=nbformat.NO_CONVERT, fmt=None, **kwargs):
-    """"
-    Read a notebook from a file name or a file object
+    """Read a notebook from a file name or a file object
 
     :param fp: a file name or a file object
     :param as_version: see nbformat.read
@@ -409,8 +407,7 @@ def read(fp, as_version=nbformat.NO_CONVERT, fmt=None, **kwargs):
 
 
 def writes(notebook, fmt, version=nbformat.NO_CONVERT, **kwargs):
-    """"
-    Write a notebook to a file name or a file object
+    """Return text representation of the notebook
 
     :param notebook: the notebook
     :param fmt: the jupytext format like `md`, `py:percent`, ...
@@ -455,8 +452,7 @@ def writes(notebook, fmt, version=nbformat.NO_CONVERT, **kwargs):
 
 
 def write(nb, fp, version=nbformat.NO_CONVERT, fmt=None, **kwargs):
-    """"
-    Write a notebook to a file name or a file object
+    """Write a notebook to a file name or a file object
 
     :param nb: the notebook
     :param fp: a file name or a file object
@@ -507,25 +503,3 @@ def create_prefix_dir(nb_file, fmt):
                 logging.WARNING, "[jupytext] creating missing directory %s", nb_dir
             )
             os.makedirs(nb_dir)
-
-
-def readf(nb_file, fmt=None):  # pragma: no cover
-    """Read a notebook from the file with given name"""
-    warnings.warn(
-        "readf is deprecated. Please use read instead, and pass the fmt "
-        "argument with an explicit fmt=... (see https://github.com/mwouts/jupytext/issues/262)",
-        DeprecationWarning,
-    )
-
-    return read(fp=nb_file, fmt=fmt)
-
-
-def writef(notebook, nb_file, fmt=None):  # pragma: no cover
-    """Write a notebook to the file with given name"""
-    warnings.warn(
-        "writef is deprecated. Please use write instead, and pass the fmt "
-        "argument with an explicit fmt=... (see https://github.com/mwouts/jupytext/issues/262)",
-        DeprecationWarning,
-    )
-
-    return write(nb=notebook, fp=nb_file, fmt=fmt)

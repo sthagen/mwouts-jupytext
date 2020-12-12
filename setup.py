@@ -5,7 +5,12 @@ from setuptools import setup, find_packages
 
 this_directory = path.abspath(path.dirname(__file__))
 with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
-    long_description = f.read()
+    # replace Markdown links (docs/[NAME].md with (https://jupytext.readthedocs.io/en/latest/[NAME].html
+    long_description = re.sub(
+        r"\(docs/([A-Za-z-_]*).md",
+        "(https://jupytext.readthedocs.io/en/latest/\\1.html",
+        f.read(),
+    )
 
 with open(path.join(this_directory, "jupytext/version.py")) as f:
     version_file = f.read()
@@ -48,18 +53,12 @@ setup(
         ),
         (
             "share/jupyter/lab/extensions",
-            ["packages/labextension/jupyterlab-jupytext-1.2.1.tgz"],
+            ["packages/labextension/jupyterlab-jupytext-1.2.3.tgz"],
         ),
     ],
     entry_points={"console_scripts": ["jupytext = jupytext.cli:jupytext"]},
     tests_require=["pytest"],
-    install_requires=[
-        "markdown-it-py~=0.5.2; python_version >= '3.6'",
-        "nbformat>=4.0.0",
-        "pyyaml",
-        "toml",
-        'mock; python_version<"3"',
-    ],
+    install_requires=["markdown-it-py~=0.5.2", "nbformat>=4.0.0", "pyyaml", "toml"],
     extras_require={
         # left for back-compatibility
         "myst": [],
@@ -76,12 +75,10 @@ setup(
         "Intended Audience :: Science/Research",
         "Topic :: Text Processing :: Markup",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
 )

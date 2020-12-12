@@ -21,7 +21,7 @@ def test_pairing_through_config_leaves_ipynb_unmodified(tmpdir):
     assert py_file.isfile()
 
     nb = nbformat.read(nb_file, as_version=4)
-    assert 'jupytext' not in nb.metadata
+    assert "jupytext" not in nb.metadata
 
 
 def test_default_jupytext_formats(tmpdir):
@@ -143,3 +143,18 @@ jupyter:
 ```
 """,
     )
+
+
+def test_cli_config_on_windows_issue_629(tmpdir):
+    cfg_file = tmpdir.join("jupytext.yml")
+    cfg_file.write(
+        """default_jupytext_formats: "notebooks///ipynb,scripts///py:percent"
+default_notebook_metadata_filter: "jupytext"
+"""
+    )
+
+    tmpdir.mkdir("scripts").join("test.py").write("# %%\n 1+1\n")
+
+    jupytext(["--sync", str(tmpdir.join("scripts").join("*.py"))])
+
+    assert tmpdir.join("notebooks").join("test.ipynb").exists()

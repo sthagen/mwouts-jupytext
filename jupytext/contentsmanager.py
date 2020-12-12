@@ -5,11 +5,6 @@ import itertools
 from datetime import timedelta, datetime
 from collections import namedtuple
 import nbformat
-
-try:
-    import unittest.mock as mock
-except ImportError:
-    import mock
 from tornado.web import HTTPError
 
 # import notebook.transutils before notebook.services.contents.filemanager #75
@@ -18,8 +13,7 @@ try:
 except ImportError:
     pass
 
-from .jupytext import reads, writes
-from .jupytext import create_prefix_dir as create_prefix_dir_from_path
+import jupytext
 from .formats import long_form_multiple_formats
 from .formats import short_form_one_format, short_form_multiple_formats
 from .paired_paths import (
@@ -33,24 +27,14 @@ from .pairs import write_pair, read_pair, latest_inputs_and_outputs
 from .kernels import set_kernelspec_from_language
 from .config import (
     JupytextConfiguration,
+    JupytextConfigurationError,
+    JUPYTEXT_CONFIG_FILES,
+    find_global_jupytext_configuration_file,
+    load_jupytext_configuration_file,
+    validate_jupytext_configuration_file,
     preferred_format,
-    load_jupytext_config,
     prepare_notebook_for_save,
 )
-
-
-def _jupytext_writes(fmt):
-    def _writes(nbk, version=nbformat.NO_CONVERT, **kwargs):
-        return writes(nbk, fmt, version=version, **kwargs)
-
-    return _writes
-
-
-def _jupytext_reads(fmt):
-    def _reads(text, as_version, **kwargs):
-        return reads(text, fmt, as_version=as_version, **kwargs)
-
-    return _reads
 
 
 def build_jupytext_contents_manager_class(base_contents_manager_class):
@@ -63,15 +47,17 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
         Python (.py) or R scripts (.R)
         """
 
-        def __init__(self, **kwargs):
+        def __init__(self, *args, **kwargs):
             # Dictionary: notebook path => (fmt, formats) where
             # fmt is the current format, and formats the paired formats.
             self.paired_notebooks = dict()
 
             # Configuration cache, useful when notebooks are listed in a given directory
-            self.cached_config = namedtuple("cached_config", "path timestamp config")
-
-            super(JupytextContentsManager, self).__init__(**kwargs)
+            self.cached_config = namedtuple(
+                "cached_config", "path timestamp config_file config"
+            )
+            self.super = super(JupytextContentsManager, self)
+            self.super.__init__(*args, **kwargs)
 
         def all_nb_extensions(self):
             """All extensions that should be classified as notebooks"""
@@ -115,12 +101,17 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
 
         def create_prefix_dir(self, path, fmt):
             """Create the prefix dir, if missing"""
-            create_prefix_dir_from_path(self._get_os_path(path.strip("/")), fmt)
+            if "prefix" in fmt and "/" in path:
+                parent_dir = self.get_parent_dir(path)
+                if not self.dir_exists(parent_dir):
+                    self.create_prefix_dir(parent_dir, fmt)
+                    self.log.info("Creating directory %s", parent_dir)
+                    self.super.save(dict(type="directory"), parent_dir)
 
         def save(self, model, path=""):
             """Save the file model and return the model with no content."""
             if model["type"] != "notebook":
-                return super(JupytextContentsManager, self).save(model, path)
+                return self.super.save(model, path)
 
             path = path.strip("/")
             nbk = model["content"]
@@ -146,7 +137,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
 
                     self.create_prefix_dir(path, fmt)
                     if fmt["extension"] == ".ipynb":
-                        return super(JupytextContentsManager, self).save(model, path)
+                        return self.super.save(model, path)
 
                     if (
                         model["content"]["metadata"]
@@ -161,13 +152,25 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                             )
                         )
 
-                    with mock.patch("nbformat.writes", _jupytext_writes(fmt)):
-                        return super(JupytextContentsManager, self).save(model, path)
+                    text_model = dict(
+                        type="file",
+                        format="text",
+                        content=jupytext.writes(
+                            nbformat.from_dict(model["content"]), fmt=fmt
+                        ),
+                    )
+
+                    return self.super.save(text_model, path)
 
                 return write_pair(path, jupytext_formats, save_one_file)
 
-            except Exception as err:
-                raise HTTPError(400, str(err))
+            except Exception as e:
+                self.log.error(
+                    u"Error while saving file: %s %s", path, e, exc_info=True
+                )
+                raise HTTPError(
+                    500, u"Unexpected error while saving file: %s %s" % (path, e)
+                )
 
         def get(
             self,
@@ -179,28 +182,36 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
         ):
             """ Takes a path for an entity and returns its model"""
             path = path.strip("/")
-
-            os_path = self._get_os_path(path)
             ext = os.path.splitext(path)[1]
 
             # Not a notebook?
             if (
-                not self.exists(path)
-                or os.path.isdir(os_path)
+                not self.file_exists(path)
+                or self.dir_exists(path)
                 or (type != "notebook" if type else ext not in self.all_nb_extensions())
             ):
-                return super(JupytextContentsManager, self).get(
-                    path, content, type, format
-                )
+                return self.super.get(path, content, type, format)
 
             config = self.get_config(path, use_cache=content is False)
             fmt = preferred_format(ext, config.preferred_jupytext_formats_read)
             if ext == ".ipynb":
-                model = self._notebook_model(path, content=content)
+                model = self.super.get(path, content, type="notebook", format=format)
             else:
+                model = self.super.get(path, content, type="file", format=format)
+                model["type"] = "notebook"
                 config.set_default_format_options(fmt, read=True)
-                with mock.patch("nbformat.reads", _jupytext_reads(fmt)):
-                    model = self._notebook_model(path, content=content)
+                if content:
+                    # We may need to update these keys, inherited from text files formats
+                    # Cf. https://github.com/mwouts/jupytext/issues/659
+                    model["format"] = "json"
+                    model["mimetype"] = None
+                    try:
+                        model["content"] = jupytext.reads(model["content"], fmt=fmt)
+                    except Exception as err:
+                        self.log.error(
+                            u"Error while reading file: %s %s", path, err, exc_info=True
+                        )
+                        raise HTTPError(500, str(err))
 
             if not load_alternative_format:
                 return model
@@ -214,7 +225,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                 fmt, formats = self.paired_notebooks.get(path)
                 for alt_path, _ in paired_paths(path, fmt, formats):
                     if alt_path != path and self.exists(alt_path):
-                        alt_model = self._notebook_model(alt_path, content=False)
+                        alt_model = self.super.get(alt_path, content=False)
                         if alt_model["last_modified"] > model["last_modified"]:
                             model["last_modified"] = alt_model["last_modified"]
 
@@ -237,7 +248,12 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                     alt_paths = paired_paths(path, fmt, formats)
                     self.update_paired_notebooks(path, formats)
                 except InconsistentPath as err:
-                    self.log.info("Unable to read paired notebook: %s", str(err))
+                    self.log.error(
+                        u"Unable to read paired notebook: %s %s",
+                        path,
+                        err,
+                        exc_info=True,
+                    )
             else:
                 if path in self.paired_notebooks:
                     fmt, formats = self.paired_notebooks.get(path)
@@ -256,19 +272,23 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                     return None
                 if alt_path == path:
                     return model["last_modified"]
-                return self._notebook_model(alt_path, content=False)["last_modified"]
+                return self.super.get(alt_path, content=False)["last_modified"]
 
             def read_one_file(alt_path, alt_fmt):
                 if alt_path == path:
                     return model["content"]
                 if alt_path.endswith(".ipynb"):
                     self.log.info(u"Reading OUTPUTS from {}".format(alt_path))
-                    return self._notebook_model(alt_path, content=True)["content"]
+                    return self.super.get(
+                        alt_path, content=True, type="notebook", format=format
+                    )["content"]
 
                 self.log.info(u"Reading SOURCE from {}".format(alt_path))
                 config.set_default_format_options(alt_fmt, read=True)
-                with mock.patch("nbformat.reads", _jupytext_reads(alt_fmt)):
-                    return self._notebook_model(alt_path, content=True)["content"]
+                text = self.super.get(
+                    alt_path, content=True, type="file", format=format
+                )["content"]
+                return jupytext.reads(text, fmt=alt_fmt)
 
             inputs, outputs = latest_inputs_and_outputs(
                 path, fmt, formats, get_timestamp, contents_manager_mode=True
@@ -291,8 +311,8 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                         - open {src} in a text editor, make sure it is up to date, and save it,
                         - or delete {src} if not up to date,
                         - or increase check margin by adding, say,
-                            c.ContentsManager.outdated_text_notebook_margin = 5 # in seconds # or float("inf")
-                        to your .jupyter/jupyter_notebook_config.py file
+                            outdated_text_notebook_margin = 5  # default is 1 (second)
+                        to your jupytext.toml file
                         """.format(
                             src=inputs.path,
                             src_last=inputs.timestamp,
@@ -305,8 +325,13 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
 
             try:
                 model["content"] = read_pair(inputs, outputs, read_one_file)
+            except HTTPError:
+                raise
             except Exception as err:
-                raise HTTPError(400, str(err))
+                self.log.error(
+                    u"Error while reading file: %s %s", path, err, exc_info=True
+                )
+                raise HTTPError(500, str(err))
 
             if not outputs.timestamp:
                 set_kernelspec_from_language(model["content"])
@@ -329,9 +354,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
             into account when type=="notebook". See https://github.com/mwouts/jupytext/issues/443
             """
             if type != "notebook" and ext != ".ipynb":
-                return super(JupytextContentsManager, self).new_untitled(
-                    path, type, ext
-                )
+                return self.super.new_untitled(path, type, ext)
 
             ext = ext or ".ipynb"
             if ":" in ext:
@@ -380,13 +403,13 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
         def trust_notebook(self, path):
             """Trust the current notebook"""
             if path.endswith(".ipynb") or path not in self.paired_notebooks:
-                super(JupytextContentsManager, self).trust_notebook(path)
+                self.super.trust_notebook(path)
                 return
 
             fmt, formats = self.paired_notebooks[path]
             for alt_path, alt_fmt in paired_paths(path, fmt, formats):
                 if alt_fmt["extension"] == ".ipynb":
-                    super(JupytextContentsManager, self).trust_notebook(alt_path)
+                    self.super.trust_notebook(alt_path)
 
         def rename_file(self, old_path, new_path):
             """Rename the current notebook, as well as its alternative representations"""
@@ -399,7 +422,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                     pass
 
             if old_path not in self.paired_notebooks:
-                super(JupytextContentsManager, self).rename_file(old_path, new_path)
+                self.super.rename_file(old_path, new_path)
                 return
 
             fmt, formats = self.paired_notebooks.get(old_path)
@@ -408,23 +431,70 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
             # Is the new file name consistent with suffix?
             try:
                 new_base = base_path(new_path, fmt)
+            except HTTPError:
+                raise
             except Exception as err:
-                raise HTTPError(400, str(err))
+                self.log.error(
+                    u"Error while renaming file from %s to %s: %s",
+                    old_path,
+                    new_path,
+                    err,
+                    exc_info=True,
+                )
+                raise HTTPError(500, str(err))
 
             for old_alt_path, alt_fmt in old_alt_paths:
                 new_alt_path = full_path(new_base, alt_fmt)
                 if self.exists(old_alt_path):
-                    super(JupytextContentsManager, self).rename_file(
-                        old_alt_path, new_alt_path
-                    )
+                    self.super.rename_file(old_alt_path, new_alt_path)
 
             self.drop_paired_notebook(old_path)
             self.update_paired_notebooks(new_path, formats)
 
+        def get_parent_dir(self, path):
+            """The parent directory"""
+            if "/" in path:
+                return path.rsplit("/", 1)[0]
+            # jupyter-fs
+            if ":" in path and hasattr(self, "_managers"):
+                if path.endswith(":"):
+                    return ""
+                return path.rsplit(":", 1)[0] + ":"
+            return ""
+
+        def get_config_file(self, directory):
+            """Return the jupytext configuration file, if any"""
+            for jupytext_config_file in JUPYTEXT_CONFIG_FILES:
+                path = directory + "/" + jupytext_config_file
+                if self.file_exists(path):
+                    return path
+
+            if not directory:
+                return None
+
+            parent_dir = self.get_parent_dir(directory)
+            return self.get_config_file(parent_dir)
+
+        def load_config_file(self, config_file, is_os_path=False):
+            """Load the configuration file"""
+            if config_file is None:
+                return None
+            self.log.info("Loading Jupytext configuration file at %s", config_file)
+            if config_file.endswith(".py") and not is_os_path:
+                config_file = self._get_os_path(config_file)
+                is_os_path = True
+            if is_os_path:
+                config_dict = load_jupytext_configuration_file(config_file)
+            else:
+                model = self.super.get(config_file, content=True, type="file")
+                config_dict = load_jupytext_configuration_file(
+                    config_file, model["content"]
+                )
+            return validate_jupytext_configuration_file(config_file, config_dict)
+
         def get_config(self, path, use_cache=False):
             """Return the Jupytext configuration for the given path"""
-            nb_file = self._get_os_path(path.strip("/"))
-            parent_dir = os.path.dirname(nb_file)
+            parent_dir = self.get_parent_dir(path)
 
             # When listing the notebooks for the tree view, we use a one-second
             # cache for the configuration file
@@ -435,11 +505,35 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                     self.cached_config.timestamp + timedelta(seconds=1) < datetime.now()
                 )
             ):
-                self.cached_config.path = parent_dir
-                self.cached_config.timestamp = datetime.now()
-                self.cached_config.config = load_jupytext_config(parent_dir)
+                try:
+                    config_file = self.get_config_file(parent_dir)
+                    if config_file:
+                        self.cached_config.config = self.load_config_file(config_file)
+                    else:
+                        config_file = find_global_jupytext_configuration_file()
+                        self.cached_config.config = self.load_config_file(
+                            config_file, True
+                        )
+                    self.cached_config.config_file = config_file
+                    self.cached_config.path = parent_dir
+                    self.cached_config.timestamp = datetime.now()
+                except JupytextConfigurationError as err:
+                    self.log.error(
+                        u"Error while reading config file: %s %s",
+                        config_file,
+                        err,
+                        exc_info=True,
+                    )
+                    raise HTTPError(500, "{}".format(err))
 
-            return self.cached_config.config or self
+            if self.cached_config.config is not None:
+                self.log.debug(
+                    "Configuration file for %s is %s",
+                    path,
+                    self.cached_config.config_file,
+                )
+                return self.cached_config.config
+            return self
 
     return JupytextContentsManager
 

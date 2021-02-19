@@ -1,13 +1,15 @@
-import os
-import sys
-import re
 import json
+import os
+import re
+import sys
+
 import pytest
-from jupytext.cli import system
-from jupytext.cell_reader import rst2md
-from jupytext.pandoc import is_pandoc_available
 from jupyter_client.kernelspec import find_kernel_specs, get_kernel_spec
+
+from jupytext.cell_reader import rst2md
+from jupytext.cli import system
 from jupytext.myst import is_myst_available
+from jupytext.pandoc import is_pandoc_available
 
 
 def tool_version(tool):
@@ -59,11 +61,19 @@ requires_ir_kernel = pytest.mark.skipif(
     not any(get_kernel_spec(name).language == "R" for name in find_kernel_specs()),
     reason="irkernel is not installed",
 )
+requires_user_kernel_python3 = pytest.mark.skipif(
+    "python_kernel" not in find_kernel_specs(),
+    reason="Please run 'python -m ipykernel install --name python_kernel --user'",
+)
 requires_myst = pytest.mark.skipif(
     not is_myst_available(), reason="myst_parser not found"
 )
 requires_no_myst = pytest.mark.skipif(is_myst_available(), reason="myst is available")
 skip_on_windows = pytest.mark.skipif(sys.platform.startswith("win"), reason="Issue 489")
+skip_pre_commit_tests_on_windows = pytest.mark.skipif(
+    sys.platform.startswith("win"),
+    reason="OSError: [WinError 193] %1 is not a valid Win32 application",
+)
 
 
 def list_notebooks(path="ipynb", skip="World"):

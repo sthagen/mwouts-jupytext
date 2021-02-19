@@ -1,12 +1,82 @@
 Jupytext ChangeLog
 ==================
 
+1.10.2 (2021-02-17)
+-------------------
+
+**Fixed**
+- We have adjusted the `MANIFEST.in` file to exclude the `node_modules` but still include the JupyterLab extension that was missing in the `.tar.gz` (and conda) package in v1.10.1. Many thanks to Martin Renou for providing the fix at ([#741](https://github.com/mwouts/jupytext/issues/741))
+
+
+1.10.1 (2021-02-11)
+-------------------
+
+**Added**
+- The recursive glob pattern `**/*.ipynb` is now supported by Jupytext - Thanks to Banst for this contribution ([#731](https://github.com/mwouts/jupytext/issues/731))
+- Sage notebooks are supported. They can be converted to `.sage` and `.md` files and back. Thanks to Lars Franke for suggesting this! ([#727](https://github.com/mwouts/jupytext/issues/727))
+- Jupytext is also accessible with `python -m jupytext`. Thanks to Matthew Brett for his PR! ([#739](https://github.com/mwouts/jupytext/issues/739))
+
+**Changed**
+- We have tested Jupytext with the new cell ids introduced in `nbformat>=5.1.0`. Cell ids are preserved by the `--sync` and `--update` command. So we removed the constraint on the version of `nbformat` ([#735](https://github.com/mwouts/jupytext/issues/735)).
+
+**Fixed**
+- We filtered out the `node_modules` folder from the `.tar.gz` package for Jupytext ([#730](https://github.com/mwouts/jupytext/issues/730))
+
+
+1.10.0 (2021-02-04)
+-------------------
+
+**Added**
+- Jupytext has a pre-commit hook! Many thanks to John Paton and Aaron Gokaslan for making this happen ([#698](https://github.com/mwouts/jupytext/issues/698))
+- Jupytext CLI will not rewrite files that don't change ([#698](https://github.com/mwouts/jupytext/issues/698)).
+- If you want to see the diff for changed files, use the new `--diff` option ([#722](https://github.com/mwouts/jupytext/issues/722))
+- We have added `isort` and `autoflake8` to the `pre-commit` configuration file used for developing the Jupytext project ([#709](https://github.com/mwouts/jupytext/issues/709))
+- We made sure that `py:percent` scripts end with exactly one blank line ([#682](https://github.com/mwouts/jupytext/issues/682))
+- We checked that Jupytext works well with symbolic links to folders (not files!) ([#696](https://github.com/mwouts/jupytext/issues/696))
+
+**Changed**
+- Jupytext does not work properly with the new cell ids of the version 4.5 of `nbformat>=5.1.0` yet, so we added the requirement `nbformat<=5.0.8` ([#715](https://github.com/mwouts/jupytext/issues/715))
+- Jupytext will issue an informative error or warning on notebooks in a version of nbformat that is not known to be supported ([#681](https://github.com/mwouts/jupytext/issues/681), [#715](https://github.com/mwouts/jupytext/issues/715))
+
+**Fixed**
+- Code cells that contain triple backticks (or more) are now encapsulated with four backticks (or more) in the Markdown and MyST Markdown formats. The version number for the Markdown format was increased to 1.3, and the version number for the MyST Markdown format was increased to 0.13 ([#712](https://github.com/mwouts/jupytext/issues/712))
+- Indented magic commands are supported ([#694](https://github.com/mwouts/jupytext/issues/694))
+
+
+1.9.1 (2021-01-06)
+------------------
+
+**Fixed**
+- Include the lab extension that was missing in the conda package ([#703](https://github.com/mwouts/jupytext/pull/703)).
+
+
+1.9.0 (2021-01-05)
+------------------
+
+**Changed**
+- The Jupytext extension for JupyterLab is compatible with Jupyter Lab 3.0, thanks to Martin Renou's awesome contribution ([#683](https://github.com/mwouts/jupytext/pull/683)).
+
+
+1.8.2 (2021-01-04)
+------------------
+
+**Changed**
+- Jupytext 1.8.2 depends on `python>=3.6`. The last version of Jupytext explicitly tested with Python 2.7 and 3.5 was Jupytext 1.7.1 ([#697](https://github.com/mwouts/jupytext/issues/697)).
+
+
+1.8.1 (2021-01-03)
+------------------
+
+**Changed**
+- The dependency on `markdown-it-py` is conditional on `python>=3.6` ([#697](https://github.com/mwouts/jupytext/issues/697))
+
+
 1.8.0 (2020-12-22)
 ------------------
 
 **Changed**
 - Removed support for Python 2.7 and 3.5, a preliminary step towards a JupyterLab 3.0-compatible extension ([#683](https://github.com/mwouts/jupytext/issues/683))
-- The MyST Markdown format uses markdown-it-py~=0.6.0 ([#692](https://github.com/mwouts/jupytext/issues/692))
+- The MyST Markdown format uses `markdown-it-py~=0.6.0` ([#692](https://github.com/mwouts/jupytext/issues/692))
 
 
 1.7.1 (2020-11-16)

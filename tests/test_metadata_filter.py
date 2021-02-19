@@ -1,5 +1,6 @@
 import pytest
-from nbformat.v4.nbbase import new_notebook, new_code_cell
+from nbformat.v4.nbbase import new_code_cell, new_notebook
+
 from jupytext import reads, writes
 from jupytext.cli import jupytext as jupytext_cli
 from jupytext.metadata_filter import filter_metadata, metadata_filter_as_dict
@@ -156,12 +157,11 @@ def test_default_config_has_priority_over_current_metadata(
 
     cfg_file = tmpdir.join("jupytext.toml")
     cfg_file.write(
-        """default_jupytext_formats = "ipynb,py:percent"
-default_cell_metadata_filter = "-some_metadata_key"
+        """default_cell_metadata_filter = "-some_metadata_key"
 """
     )
 
-    jupytext_cli([str(py_file), "--sync"])
+    jupytext_cli([str(py_file), "--to", "py"])
     assert (
         py_file.read()
         == """# %%

@@ -145,19 +145,6 @@ jobs:
         shell: pwsh
         run: |
           python -m ipykernel install --name jupytext-ci --user
-      - name: Install optional dependencies
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='silentlycontinue'
-          # install black, isort, and autopep8 for testing the pipe mode
-          conda install black --freeze-installed
-          conda install isort>=5.3.0 --freeze-installed
-          conda install autopep8 --freeze-installed
-          # install sphinx_gallery and matplotlib if available
-          conda install 'sphinx-gallery>=0.7' 'sphinx-gallery<0.8' --freeze-installed
-          # myst-parser
-          conda install 'markdown-it-py>=0.5' 'markdown-it-py<0.6' --freeze-installed
-          exit 0
       - name: Conda list
         shell: pwsh
         run: conda list
@@ -200,8 +187,33 @@ jobs:
         - name: Upload coverage
           uses: codecov/codecov-action@v1
 
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v2
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Build package
+        run: |
+          pip install wheel jupyter-packaging jupyterlab>=3
+          BUILD_JUPYTERLAB_EXTENSION=1 python setup.py sdist bdist_wheel
+          # Don't publish a tar.gz file over 1MB  (Issue #730)
+          if (($(wc -c < dist/*.tar.gz) > 1000000)); then exit 1; fi
+          # node_modules should not be in the package
+          if (($(tar -tf dist/*.tar.gz | grep node_modules | wc -l)>0)); then echo "node_modules should not be included" && exit 1; fi
+          # Check that the lab and the notebook extensions are there
+          if (($(tar -tf dist/*.tar.gz | grep packages/labextension/package.json$ | wc -l)==0)); then echo "Missing lab extension" && exit 1; fi
+          if (($(tar -tf dist/*.tar.gz | grep jupytext/nbextension/index.js$ | wc -l)==0)); then echo "Missing notebook extension" && exit 1; fi
+          # Install
+          pip install dist/*.tar.gz
+          echo "Install went OK"
   publish:
     name: Publish to PyPi
+    needs: build
     if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags')
     runs-on: ubuntu-latest
     steps:
@@ -213,8 +225,8 @@ jobs:
           python-version: 3.7
       - name: Build package
         run: |
-          pip install wheel
-          python setup.py sdist bdist_wheel
+          pip install wheel jupyter-packaging jupyterlab>=3
+          BUILD_JUPYTERLAB_EXTENSION=1 python setup.py sdist bdist_wheel
       - name: Publish
         uses: pypa/gh-action-pypi-publish@v1.1.0
         with:

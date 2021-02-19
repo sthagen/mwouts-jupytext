@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 
 import os
+
 import pytest
 from nbformat.v4.nbbase import (
-    new_notebook,
     new_code_cell,
     new_markdown_cell,
+    new_notebook,
     new_raw_cell,
 )
-from jupytext.compare import compare, compare_notebooks
+
 import jupytext
+from jupytext.compare import compare, compare_notebooks
+
 from .utils import notebook_model
 
 
@@ -224,7 +227,7 @@ def test_multiple_empty_cells():
     compare(text, expected)
     nb2 = jupytext.reads(text, "py:percent")
     nb2.metadata = nb.metadata
-    compare(nb2, nb)
+    compare_notebooks(nb2, nb)
 
 
 def test_first_cell_markdown_191():

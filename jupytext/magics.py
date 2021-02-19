@@ -1,19 +1,20 @@
 """Escape Jupyter magics when converting to other formats"""
 
 import re
+
+from .languages import _COMMENT, _SCRIPT_EXTENSIONS, usual_language_name
 from .stringparser import StringParser
-from .languages import _SCRIPT_EXTENSIONS, _COMMENT, usual_language_name
 
 # A magic expression is a line or cell or metakernel magic (#94, #61) escaped zero, or multiple times
 _MAGIC_RE = {
     _SCRIPT_EXTENSIONS[ext]["language"]: re.compile(
-        r"^({0} |{0})*(%|%%|%%%)[a-zA-Z]".format(_SCRIPT_EXTENSIONS[ext]["comment"])
+        r"^\s*({0} |{0})*(%|%%|%%%)[a-zA-Z]".format(_SCRIPT_EXTENSIONS[ext]["comment"])
     )
     for ext in _SCRIPT_EXTENSIONS
 }
 _MAGIC_FORCE_ESC_RE = {
     _SCRIPT_EXTENSIONS[ext]["language"]: re.compile(
-        r"^({0} |{0})*(%|%%|%%%)[a-zA-Z](.*){0}\s*escape".format(
+        r"^\s*({0} |{0})*(%|%%|%%%)[a-zA-Z](.*){0}\s*escape".format(
             _SCRIPT_EXTENSIONS[ext]["comment"]
         )
     )
@@ -21,7 +22,7 @@ _MAGIC_FORCE_ESC_RE = {
 }
 _MAGIC_NOT_ESC_RE = {
     _SCRIPT_EXTENSIONS[ext]["language"]: re.compile(
-        r"^({0} |{0})*(%|%%|%%%)[a-zA-Z](.*){0}\s*noescape".format(
+        r"^\s*({0} |{0})*(%|%%|%%%)[a-zA-Z](.*){0}\s*noescape".format(
             _SCRIPT_EXTENSIONS[ext]["comment"]
         )
     )

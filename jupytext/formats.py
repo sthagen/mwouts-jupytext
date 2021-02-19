@@ -6,40 +6,42 @@ new formats here!
 import os
 import re
 import warnings
-import yaml
+
 import nbformat
-from .header import header_to_metadata_and_cell, insert_or_test_version_number
+import yaml
+
 from .cell_reader import (
-    MarkdownCellReader,
-    RMarkdownCellReader,
-    LightScriptCellReader,
-    RScriptCellReader,
     DoublePercentScriptCellReader,
     HydrogenCellReader,
+    LightScriptCellReader,
+    MarkdownCellReader,
+    RMarkdownCellReader,
+    RScriptCellReader,
     SphinxGalleryScriptCellReader,
 )
 from .cell_to_text import (
-    MarkdownCellExporter,
-    RMarkdownCellExporter,
-    LightScriptCellExporter,
     BareScriptCellExporter,
-    RScriptCellExporter,
     DoublePercentCellExporter,
     HydrogenCellExporter,
+    LightScriptCellExporter,
+    MarkdownCellExporter,
+    RMarkdownCellExporter,
+    RScriptCellExporter,
     SphinxGalleryCellExporter,
 )
-from .metadata_filter import metadata_filter_as_string
-from .stringparser import StringParser
-from .languages import _SCRIPT_EXTENSIONS, _COMMENT_CHARS, same_language
-from .pandoc import pandoc_version
+from .header import header_to_metadata_and_cell, insert_or_test_version_number
+from .languages import _COMMENT_CHARS, _SCRIPT_EXTENSIONS, same_language
 from .magics import is_magic
+from .metadata_filter import metadata_filter_as_string
 from .myst import (
     MYST_FORMAT_NAME,
     is_myst_available,
-    myst_version,
-    myst_extensions,
     matches_mystnb,
+    myst_extensions,
+    myst_version,
 )
+from .pandoc import pandoc_version
+from .stringparser import StringParser
 from .version import __version__
 
 
@@ -81,7 +83,8 @@ JUPYTEXT_FORMATS = (
             # Version 1.1 on 2019-03-24 - jupytext v1.1.0 : Markdown regions and cell metadata
             # Version 1.2 on 2019-09-21 - jupytext v1.3.0 : Raw regions are now encoded with HTML comments (#321)
             # and by default, cell metadata use the key=value representation (#347)
-            current_version_number="1.2",
+            # Version 1.3 on 2021-01-24 - jupytext v1.10.0 : Code cells may start with more than three backticks (#712)
+            current_version_number="1.3",
             min_readable_version_number="1.0",
         ),
         NotebookFormatDescription(
@@ -762,6 +765,11 @@ def validate_one_format(jupytext_format):
 def auto_ext_from_metadata(metadata):
     """Script extension from notebook metadata"""
     auto_ext = metadata.get("language_info", {}).get("file_extension")
+
+    # Sage notebooks have ".py" as the associated extension in "language_info",
+    # so we change it to ".sage" in that case, see #727
+    if auto_ext == ".py" and metadata.get("kernelspec", {}).get("language") == "sage":
+        auto_ext = ".sage"
 
     if auto_ext is None:
         language = metadata.get("kernelspec", {}).get("language") or metadata.get(

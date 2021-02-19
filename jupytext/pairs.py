@@ -1,13 +1,14 @@
 """Functions to read or write paired notebooks"""
 
 from collections import namedtuple
+
+from .combine import combine_inputs_with_outputs
 from .formats import (
-    long_form_one_format,
-    long_form_multiple_formats,
     check_file_version,
+    long_form_multiple_formats,
+    long_form_one_format,
 )
 from .paired_paths import find_base_path_and_format, full_path, paired_paths
-from .combine import combine_inputs_with_outputs
 
 NotebookFile = namedtuple("notebook_file", "path fmt timestamp")
 
@@ -84,14 +85,14 @@ def latest_inputs_and_outputs(
             continue
 
         if alt_fmt["extension"] == ".ipynb":
-            if not timestamp_outputs or timestamp > timestamp_outputs:
+            if timestamp_outputs is None or timestamp > timestamp_outputs:
                 timestamp_outputs = timestamp
                 outputs_path, output_fmt = alt_path, alt_fmt
-        elif not timestamp_inputs or timestamp > timestamp_inputs:
+        elif timestamp_inputs is None or timestamp > timestamp_inputs:
             timestamp_inputs = timestamp
             inputs_path, input_fmt = alt_path, alt_fmt
 
-    if not timestamp_inputs or (
+    if timestamp_inputs is None or (
         not contents_manager_mode
         and timestamp_outputs
         and timestamp_outputs > timestamp_inputs

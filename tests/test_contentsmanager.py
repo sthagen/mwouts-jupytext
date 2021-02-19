@@ -1,27 +1,29 @@
 # coding: utf-8
 
-import os
-import re
-import time
-import pytest
 import itertools
 import logging
+import os
+import re
 import shutil
-from nbformat.v4.nbbase import new_notebook, new_markdown_cell, new_code_cell
+import time
+
+import pytest
+from nbformat.v4.nbbase import new_code_cell, new_markdown_cell, new_notebook
 from tornado.web import HTTPError
-from jupytext.compare import compare
+
 import jupytext
 from jupytext.cli import jupytext as jupytext_cli
-from jupytext.jupytext import writes, write, read
-from jupytext.compare import compare_notebooks
+from jupytext.compare import compare, compare_cells, compare_notebooks
+from jupytext.formats import auto_ext_from_metadata, read_format_from_metadata
 from jupytext.header import header_to_metadata_and_cell
-from jupytext.formats import read_format_from_metadata, auto_ext_from_metadata
+from jupytext.jupytext import read, write, writes
 from jupytext.kernels import kernelspec_from_language
+
 from .utils import (
     list_notebooks,
-    requires_sphinx_gallery,
-    requires_pandoc,
     notebook_model,
+    requires_pandoc,
+    requires_sphinx_gallery,
 )
 
 
@@ -1790,7 +1792,9 @@ def test_jupytext_jupyter_fs_metamanager(tmpdir):
     model = cm.get(osfs + ":text.md", type="notebook")
     assert model["type"] == "notebook"
     # We only compare the cells, as kernelspecs are added to the notebook metadata
-    compare(model["content"].cells, [new_markdown_cell(text.strip())])
+    compare_cells(
+        model["content"].cells, [new_markdown_cell(text.strip())], compare_ids=False
+    )
 
     for nb_file in ["notebook.ipynb", "text_notebook.md"]:
         model = cm.get(osfs + ":" + nb_file)
@@ -1800,7 +1804,7 @@ def test_jupytext_jupyter_fs_metamanager(tmpdir):
         # saving adds 'trusted=True' to the code cell metadata
         for cell in actual_cells:
             cell.metadata = {}
-        compare(actual_cells, nb.cells)
+        compare_cells(actual_cells, nb.cells, compare_ids=False)
 
 
 def test_config_jupytext_jupyter_fs_meta_manager(tmpdir):

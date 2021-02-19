@@ -2,17 +2,22 @@
 
 import os
 import stat
-
 import unittest.mock as mock
+
 import pytest
-from jupytext.compare import compare
-from nbformat.v4.nbbase import new_notebook, new_markdown_cell, new_code_cell
+from nbformat.v4.nbbase import new_code_cell, new_markdown_cell, new_notebook
+
 from jupytext import read, write
 from jupytext.cli import jupytext, system
-from jupytext.compare import compare_notebooks
-from .utils import list_notebooks
-from .utils import requires_black, requires_flake8, requires_pandoc
-from .utils import requires_jupytext_installed
+from jupytext.compare import compare_cells, compare_notebooks
+
+from .utils import (
+    list_notebooks,
+    requires_black,
+    requires_flake8,
+    requires_jupytext_installed,
+    requires_pandoc,
+)
 
 
 def git_in_tmpdir(tmpdir):
@@ -29,6 +34,15 @@ def git_in_tmpdir(tmpdir):
     git("config", "user.email", "jupytext@tests.com")
 
     return git
+
+
+def system_in_tmpdir(tmpdir):
+    """Return a function that will execute system commands in the desired directory"""
+
+    def system_(*args):
+        return system(*args, cwd=str(tmpdir))
+
+    return system_
 
 
 @requires_jupytext_installed
@@ -125,7 +139,9 @@ def test_sync_with_pre_commit_hook(tmpdir):
     assert "notebook.md" in git("ls-tree", "-r", "master", "--name-only")
 
     nb = read(tmp_ipynb)
-    compare(nb.cells, [new_markdown_cell("Notebook was edited")])
+    compare_cells(
+        nb.cells, [new_markdown_cell("Notebook was edited")], compare_ids=False
+    )
 
     # create and commit a jpg file
     tmp_jpg = str(tmpdir.join("image.jpg"))
@@ -252,13 +268,10 @@ def test_manual_call_of_pre_commit_hook(tmpdir):
     nb = new_notebook(cells=[])
     os.chdir(str(tmpdir))
 
-    def system_in_tmpdir(*args):
-        return system(*args, cwd=str(tmpdir))
-
     git = git_in_tmpdir(tmpdir)
 
     def hook():
-        with mock.patch("jupytext.cli.system", system_in_tmpdir):
+        with mock.patch("jupytext.cli.system", system_in_tmpdir(tmpdir)):
             jupytext(["--to", "py", "--pre-commit"])
 
     write(nb, tmp_ipynb)

@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from nbformat.v4.nbbase import (
-    new_markdown_cell,
-    new_code_cell,
-    new_raw_cell,
-    new_notebook,
-)
-from jupytext.compare import compare
-import jupytext
-from jupytext.compare import compare_notebooks
-
 import pytest
+from nbformat.v4.nbbase import (
+    new_code_cell,
+    new_markdown_cell,
+    new_notebook,
+    new_raw_cell,
+)
+
+import jupytext
+from jupytext.compare import compare, compare_notebooks
 
 
 def test_read_simple_file(
@@ -859,7 +858,7 @@ def test_notebook_no_line_to_next_cell(
     nb2 = jupytext.reads(script, "py")
     nb2.metadata.pop("jupytext")
 
-    compare(nb2, nb)
+    compare_notebooks(nb2, nb)
 
 
 def test_notebook_one_blank_line_before_first_markdown_cell(

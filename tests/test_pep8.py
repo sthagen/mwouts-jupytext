@@ -1,11 +1,16 @@
 import pytest
-from jupytext.compare import compare
+from nbformat.v4.nbbase import new_code_cell, new_notebook
+
 from jupytext import read, reads, writes
+from jupytext.compare import compare
 from jupytext.pep8 import (
-    next_instruction_is_function_or_class,
+    cell_ends_with_code,
     cell_ends_with_function_or_class,
+    cell_has_code,
+    next_instruction_is_function_or_class,
+    pep8_lines_between_cells,
 )
-from jupytext.pep8 import cell_ends_with_code, cell_has_code, pep8_lines_between_cells
+
 from .utils import list_notebooks
 
 
@@ -199,3 +204,19 @@ def test_no_metadata_when_py_is_pep8(py_file):
             assert cell.metadata == {"lines_to_next_cell": 0}, py_file
         else:
             assert not cell.metadata, (py_file, cell.source)
+
+
+def test_notebook_ends_with_exactly_one_empty_line_682():
+    """(Issue #682)
+    Steps to reproduce:
+
+        Have a notebook that ends in a python code cell (with no empty lines at the end of the cell).
+        run jupytext --to py:percent notebookWithCodeCell.ipynb.
+        See that the generated python code file has two empty lines at the end.
+
+    I would expect there to just be one new line."""
+    nb = new_notebook(
+        cells=[new_code_cell("1+1")], metadata={"jupytext": {"main_language": "python"}}
+    )
+    py = writes(nb, "py:percent")
+    assert py.endswith("1+1\n")

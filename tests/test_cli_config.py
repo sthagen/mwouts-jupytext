@@ -1,10 +1,11 @@
-import pytest
 import nbformat
-from nbformat.v4.nbbase import new_notebook, new_code_cell
+import pytest
+from nbformat.v4.nbbase import new_code_cell, new_notebook
+
 from jupytext.cli import jupytext
-from jupytext.jupytext import read, write
-from jupytext.header import header_to_metadata_and_cell
 from jupytext.compare import compare
+from jupytext.header import header_to_metadata_and_cell
+from jupytext.jupytext import read, write
 
 
 def test_pairing_through_config_leaves_ipynb_unmodified(tmpdir):
@@ -158,3 +159,18 @@ default_notebook_metadata_filter: "jupytext"
     jupytext(["--sync", str(tmpdir.join("scripts").join("*.py"))])
 
     assert tmpdir.join("notebooks").join("test.ipynb").exists()
+
+
+def test_sync_config_does_not_create_formats_metadata(
+    tmpdir, cwd_tmpdir, python_notebook
+):
+    tmpdir.join("jupytext.yml").write(
+        """default_jupytext_formats: "ipynb,py:percent"
+"""
+    )
+
+    write(python_notebook, "test.ipynb")
+    jupytext(["--sync", "test.ipynb"])
+
+    nb = read("test.py")
+    assert "formats" not in nb.metadata["jupytext"]

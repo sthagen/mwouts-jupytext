@@ -3,12 +3,14 @@ This module contains round-trip conversion between
 myst formatted text documents and notebooks.
 """
 import json
-import warnings
 import re
+import warnings
 from textwrap import dedent
 
 import nbformat as nbf
 import yaml
+
+from .cell_to_text import three_backticks_or_more
 
 try:
     from markdown_it import MarkdownIt
@@ -38,7 +40,7 @@ def raise_if_myst_is_not_available():
 
 def myst_version():
     """The version of myst."""
-    return 0.12
+    return 0.13
 
 
 def myst_extensions(no_md=False):
@@ -396,8 +398,10 @@ def notebook_to_myst(
             last_cell_md = True
 
         elif cell.cell_type in ["code", "raw"]:
-            string += "\n```{}".format(
-                code_directive if cell.cell_type == "code" else raw_directive
+            cell_delimiter = three_backticks_or_more(cell.source.splitlines())
+            string += "\n{}{}".format(
+                cell_delimiter,
+                code_directive if cell.cell_type == "code" else raw_directive,
             )
             if pygments_lexer and cell.cell_type == "code":
                 string += " {}".format(pygments_lexer)
@@ -410,7 +414,7 @@ def notebook_to_myst(
             string += cell.source
             if not cell.source.endswith("\n"):
                 string += "\n"
-            string += "```\n"
+            string += cell_delimiter + "\n"
             last_cell_md = False
 
         else:

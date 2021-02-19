@@ -1,7 +1,7 @@
 """Read and write Jupyter notebooks as text files"""
 
-from .jupytext import read, write, writes, reads
-from .formats import NOTEBOOK_EXTENSIONS, guess_format, get_format_implementation
+from .formats import NOTEBOOK_EXTENSIONS, get_format_implementation, guess_format
+from .jupytext import read, reads, write, writes
 from .reraise import reraise
 from .version import __version__
 
@@ -14,6 +14,10 @@ try:
     from .contentsmanager import TextFileContentsManager
 except ImportError as err:
     TextFileContentsManager = reraise(err)
+
+
+def _jupyter_labextension_paths():  # pragma: no cover
+    return [{"src": "labextension", "dest": "jupyterlab-jupytext"}]
 
 
 def load_jupyter_server_extension(app):  # pragma: no cover

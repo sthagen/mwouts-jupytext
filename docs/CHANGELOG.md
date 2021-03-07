@@ -1,6 +1,14 @@
 Jupytext ChangeLog
 ==================
 
+1.10.3 (2021-03-07)
+-------------------
+
+**Fixed**
+- We have updated `marked`, an indirect dependency of the `jupyterlab-jupytext` extension, to fix a moderate vulnerability ([#750](https://github.com/mwouts/jupytext/issues/750)).
+- We use non-random cell ids in the tests to avoid test failures due to duplicate cell ids ([#747](https://github.com/mwouts/jupytext/issues/747))
+
+
 1.10.2 (2021-02-17)
 -------------------
 

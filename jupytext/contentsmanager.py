@@ -22,9 +22,8 @@ from .config import (
     JupytextConfigurationError,
     find_global_jupytext_configuration_file,
     load_jupytext_configuration_file,
+    notebook_formats,
     preferred_format,
-    prepare_notebook_for_save,
-    validate_jupytext_configuration_file,
 )
 from .formats import (
     long_form_multiple_formats,
@@ -64,11 +63,11 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
             self.super = super(JupytextContentsManager, self)
             self.super.__init__(*args, **kwargs)
 
-        def all_nb_extensions(self):
+        def all_nb_extensions(self, config):
             """All extensions that should be classified as notebooks"""
             return [
                 ext if ext.startswith(".") else "." + ext
-                for ext in self.notebook_extensions.split(",")
+                for ext in config.notebook_extensions
             ]
 
         def drop_paired_notebook(self, path):
@@ -122,7 +121,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
             nbk = model["content"]
             try:
                 config = self.get_config(path)
-                jupytext_formats = prepare_notebook_for_save(nbk, config, path)
+                jupytext_formats = notebook_formats(nbk, config, path)
                 self.update_paired_notebooks(path, jupytext_formats)
 
                 def save_one_file(path, fmt):
@@ -161,7 +160,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                         type="file",
                         format="text",
                         content=jupytext.writes(
-                            nbformat.from_dict(model["content"]), fmt=fmt
+                            nbformat.from_dict(model["content"]), fmt=fmt, config=config
                         ),
                     )
 
@@ -193,25 +192,29 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
             if (
                 not self.file_exists(path)
                 or self.dir_exists(path)
-                or (type != "notebook" if type else ext not in self.all_nb_extensions())
+                or (type is not None and type != "notebook")
             ):
                 return self.super.get(path, content, type, format)
 
             config = self.get_config(path, use_cache=content is False)
+            if ext not in self.all_nb_extensions(config):
+                return self.super.get(path, content, type, format)
+
             fmt = preferred_format(ext, config.preferred_jupytext_formats_read)
             if ext == ".ipynb":
                 model = self.super.get(path, content, type="notebook", format=format)
             else:
                 model = self.super.get(path, content, type="file", format=format)
                 model["type"] = "notebook"
-                config.set_default_format_options(fmt, read=True)
                 if content:
                     # We may need to update these keys, inherited from text files formats
                     # Cf. https://github.com/mwouts/jupytext/issues/659
                     model["format"] = "json"
                     model["mimetype"] = None
                     try:
-                        model["content"] = jupytext.reads(model["content"], fmt=fmt)
+                        model["content"] = jupytext.reads(
+                            model["content"], fmt=fmt, config=config
+                        )
                     except Exception as err:
                         self.log.error(
                             u"Error while reading file: %s %s", path, err, exc_info=True
@@ -289,11 +292,10 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                     )["content"]
 
                 self.log.info(u"Reading SOURCE from {}".format(alt_path))
-                config.set_default_format_options(alt_fmt, read=True)
                 text = self.super.get(
                     alt_path, content=True, type="file", format=format
                 )["content"]
-                return jupytext.reads(text, fmt=alt_fmt)
+                return jupytext.reads(text, fmt=alt_fmt, config=config)
 
             inputs, outputs = latest_inputs_and_outputs(
                 path, fmt, formats, get_timestamp, contents_manager_mode=True
@@ -372,7 +374,8 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                 raise HTTPError(404, "No such directory: %s" % path)
 
             untitled = self.untitled_notebook
-            name = self.increment_notebook_filename(untitled + ext, path)
+            config = self.get_config(path)
+            name = self.increment_notebook_filename(config, untitled + ext, path)
             path = u"{0}/{1}".format(path, name)
 
             model = {"type": "notebook"}
@@ -384,7 +387,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
 
             return self.new(model, path)
 
-        def increment_notebook_filename(self, filename, path=""):
+        def increment_notebook_filename(self, config, filename, path=""):
             """Increment a notebook filename until it is unique, regardless of extension"""
             # Extract the full suffix from the filename (e.g. .tar.gz)
             path = path.strip("/")
@@ -400,7 +403,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                 name = basename_i + ext
                 if not any(
                     self.exists(u"{}/{}{}".format(path, basename_i, nb_ext))
-                    for nb_ext in self.notebook_extensions.split(",")
+                    for nb_ext in config.notebook_extensions
                 ):
                     break
             return name
@@ -489,13 +492,9 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                 config_file = self._get_os_path(config_file)
                 is_os_path = True
             if is_os_path:
-                config_dict = load_jupytext_configuration_file(config_file)
-            else:
-                model = self.super.get(config_file, content=True, type="file")
-                config_dict = load_jupytext_configuration_file(
-                    config_file, model["content"]
-                )
-            return validate_jupytext_configuration_file(config_file, config_dict)
+                return load_jupytext_configuration_file(config_file)
+            model = self.super.get(config_file, content=True, type="file")
+            return load_jupytext_configuration_file(config_file, model["content"])
 
         def get_config(self, path, use_cache=False):
             """Return the Jupytext configuration for the given path"""
@@ -538,6 +537,8 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                     self.cached_config.config_file,
                 )
                 return self.cached_config.config
+            if isinstance(self.notebook_extensions, str):
+                self.notebook_extensions = self.notebook_extensions.split(",")
             return self
 
     return JupytextContentsManager

@@ -11,8 +11,8 @@ def test_metadata_filters_from_config(tmpdir):
     md_file = tmpdir.join("notebook.md")
 
     cfg_file.write(
-        """default_notebook_metadata_filter = "-all"
-default_cell_metadata_filter = "-all"
+        """notebook_metadata_filter = "-all"
+cell_metadata_filter = "-all"
 """
     )
     nb = new_notebook(
@@ -44,6 +44,4 @@ default_cell_metadata_filter = "-all"
 
     jupytext_cli([str(md_file), "--to", "notebook", "--update"])
     nb2 = nbformat.read(str(nb_file), as_version=4)
-
-    del nb2.metadata["jupytext"]
     compare_notebooks(nb2, nb)

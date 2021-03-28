@@ -1,6 +1,24 @@
 Jupytext ChangeLog
 ==================
 
+1.11.1 (2021-03-26)
+-------------------
+
+**Fixed**
+- Format options stored in the notebook itself are now taken into account (Fixes [#757](https://github.com/mwouts/jupytext/issues/757))
+
+
+1.11.0 (2021-03-18)
+-------------------
+
+**Fixed**
+- The `jupytext.toml` config file can now be used together with the `jupytext` pre-commit hook ([#752](https://github.com/mwouts/jupytext/issues/752))
+- The `notebook_extensions` option of the `jupytext.toml` file now works ([#746](https://github.com/mwouts/jupytext/issues/746))
+
+**Changed**
+- The options in `jupytext.toml` where renamed to match the `jupytext` metadata in the text notebooks. One should now use `formats` rather than `default_jupytext_formats` and `notebook_metadata_filter` rather than `default_notebook_metadata_filter` ([#753](https://github.com/mwouts/jupytext/issues/753))
+
+
 1.10.3 (2021-03-07)
 -------------------
 

@@ -727,7 +727,7 @@ def test_format_prefix_suffix(tmpdir, cwd_tmpdir):
     tmp_py = "scripts/notebook_name.py"
     write(new_notebook(), tmp_ipynb)
 
-    jupytext([tmp_ipynb, "--to", os.path.join("..", "scripts//py")])
+    jupytext([tmp_ipynb, "--to", "../scripts//py"])
     assert os.path.isfile(tmp_py)
     os.remove(tmp_py)
 
@@ -867,7 +867,7 @@ def test_remove_jupytext_metadata(tmpdir, cwd_tmpdir):
 )
 def test_convert_and_update_preserves_notebook(nb_file, fmt, tmpdir, cwd_tmpdir):
     # cannot encode magic parameters in markdown yet
-    if "magic" in nb_file and fmt == "md":
+    if ("magic" in nb_file or "LateX" in nb_file) and fmt == "md":
         return
 
     tmp_ipynb = "notebook.ipynb"
@@ -1264,3 +1264,117 @@ def test_jupytext_to_ipynb_suggests_update(tmpdir, cwd_tmpdir, capsys):
     jupytext(["--to", "ipynb", "test.py"])
     capture = capsys.readouterr()
     assert "update" in capture.out
+
+
+@pytest.mark.parametrize("formats", ["", "py:percent", "py", "py:percent,ipynb"])
+def test_jupytext_to_ipynb_does_not_update_timestamp_if_output_not_in_pair(
+    tmpdir, cwd_tmpdir, python_notebook, capsys, formats
+):
+    # Write a text notebook
+    nb = python_notebook
+    if formats:
+        nb.metadata["jupytext"] = {"formats": formats}
+
+    test_py = tmpdir.join("test.py")
+    write(nb, str(test_py))
+
+    # make it read-only
+    test_py.chmod(0o444)
+
+    # py -> ipynb
+    if "ipynb" not in formats:
+        jupytext(["--to", "ipynb", "test.py"])
+    else:
+        jupytext(["--to", "ipynb", "test.py", "-o", "another.ipynb"])
+
+    capture = capsys.readouterr()
+    assert "Updating the timestamp" not in capture.out
+
+
+@pytest.mark.parametrize("formats", ["py:percent", "py", None])
+def test_jupytext_to_ipynb_does_not_update_timestamp_if_not_paired(
+    tmpdir, cwd_tmpdir, python_notebook, capsys, formats
+):
+    # Write a text notebook
+    nb = python_notebook
+    if formats:
+        nb.metadata["jupytext"] = {"formats": formats}
+
+    test_py = tmpdir.join("test.py")
+    write(nb, str(test_py))
+
+    # make it read-only
+    test_py.chmod(0o444)
+
+    # py -> ipynb
+    jupytext(["--to", "ipynb", "test.py"])
+
+    capture = capsys.readouterr()
+    assert "Updating the timestamp" not in capture.out
+
+
+@pytest.mark.parametrize("formats", ["ipynb,py", "py:percent", "py", None])
+def test_use_source_timestamp(tmpdir, cwd_tmpdir, python_notebook, capsys, formats):
+    # Write a text notebook
+    nb = python_notebook
+    if formats:
+        nb.metadata["jupytext"] = {"formats": formats}
+
+    test_py = tmpdir.join("test.py")
+    test_ipynb = tmpdir.join("test.ipynb")
+    write(nb, str(test_py))
+    src_timestamp = test_py.stat().mtime
+
+    # Wait...
+    time.sleep(0.1)
+
+    # py -> ipynb
+    jupytext(["--to", "ipynb", "test.py", "--use-source-timestamp"])
+
+    capture = capsys.readouterr()
+    assert "Updating the timestamp" not in capture.out
+
+    dest_timestamp = test_ipynb.stat().mtime
+    # on Mac OS the dest_timestamp is truncated at the microsecond (#790)
+    assert src_timestamp - 1e-6 <= dest_timestamp <= src_timestamp
+
+    # Make sure that we can open the file in Jupyter
+    from jupytext.contentsmanager import TextFileContentsManager
+
+    cm = TextFileContentsManager()
+    cm.outdated_text_notebook_margin = 0.001
+    cm.root_dir = str(tmpdir)
+
+    # No error here
+    cm.get("test.ipynb")
+
+    # But now if we don't use --use-source-timestamp
+    jupytext(["--to", "ipynb", "test.py"])
+    os.utime(test_py, (src_timestamp, src_timestamp))
+
+    # Then we can't open paired notebooks
+    if formats == "ipynb,py":
+        from tornado.web import HTTPError
+
+        with pytest.raises(HTTPError, match="seems more recent than test.py"):
+            cm.get("test.ipynb")
+    else:
+        cm.get("test.ipynb")
+
+
+def test_round_trip_with_null_metadata_792(tmpdir, cwd_tmpdir, python_notebook):
+    nb = python_notebook
+    nb.metadata.kernelspec = {
+        "argv": ["python", "-m", "ipykernel_launcher", "-f", "{connection_file}"],
+        "display_name": "Python 3",
+        "env": None,
+        "interrupt_mode": "signal",
+        "language": "python",
+        "metadata": None,
+        "name": "python3",
+    }
+    write(nb, "test.ipynb")
+    jupytext(["--to", "py:percent", "test.ipynb"])
+    jupytext(["--to", "ipynb", "test.py"])
+    nb = read("test.ipynb")
+    assert nb.metadata.kernelspec.env is None

@@ -11,7 +11,8 @@ dependencies:
   - nbformat>=5.1.2
   - pyyaml
   - toml
-  - markdown-it-py~=0.6.0
+  - markdown-it-py~=1.0
+  - mdit-py-plugins
   - pip
   - pytest
   - pytest-cov

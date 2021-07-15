@@ -180,7 +180,14 @@ def parse_jupytext_args(args=None):
         "See also the --opt and --set-formats options for other ways "
         "to operate on the Jupytext metadata.",
     )
-    action.add_argument(
+    parser.add_argument(
+        "--use-source-timestamp",
+        help="Set the modification timestamp of the output file(s) equal"
+        "to that of the source file, and keep the source file and "
+        "its timestamp unchanged.",
+        action="store_true",
+    )
+    parser.add_argument(
         "--warn-only",
         "-w",
         action="store_true",
@@ -468,7 +475,8 @@ def jupytext_single_file(nb_file, args, log):
     config = load_jupytext_config(os.path.abspath(nb_file))
 
     # Just acting on metadata / pipe => save in place
-    if not nb_dest and not args.sync:
+    save_in_place = not nb_dest and not args.sync
+    if save_in_place:
         nb_dest = nb_file
 
     if nb_dest == "-":
@@ -597,11 +605,20 @@ def jupytext_single_file(nb_file, args, log):
     # Pipe the notebook into the desired commands
     prefix = None if nb_file == "-" else os.path.splitext(os.path.basename(nb_file))[0]
     for cmd in args.pipe or []:
-        notebook = pipe_notebook(notebook, cmd, args.pipe_fmt, prefix=prefix)
+        notebook = pipe_notebook(
+            notebook, cmd, args.pipe_fmt, prefix=prefix, warn_only=args.warn_only
+        )
 
     # and/or test the desired commands onto the notebook
     for cmd in args.check or []:
-        pipe_notebook(notebook, cmd, args.pipe_fmt, update=False, prefix=prefix)
+        pipe_notebook(
+            notebook,
+            cmd,
+            args.pipe_fmt,
+            update=False,
+            prefix=prefix,
+            warn_only=args.warn_only,
+        )
 
     if (
         args.execute
@@ -663,7 +680,6 @@ def jupytext_single_file(nb_file, args, log):
             ) from err
 
     # III. ### Possible actions ###
-    modified = args.update_metadata or args.pipe or args.execute
     # a. Test round trip conversion
     if args.test or args.test_strict:
         try:
@@ -679,7 +695,7 @@ def jupytext_single_file(nb_file, args, log):
 
             # Round trip from a text file
             else:
-                with open(nb_file) as fp:
+                with open(nb_file, encoding="utf-8") as fp:
                     org_text = fp.read()
 
                 # If the destination is not ipynb, we convert to/back that format
@@ -737,7 +753,7 @@ def jupytext_single_file(nb_file, args, log):
             if not os.path.isfile(path):
                 modified = True
             else:
-                with open(path) as fp:
+                with open(path, encoding="utf-8") as fp:
                     current_content = fp.read()
                 modified = new_content != current_content
                 if modified and args.diff:
@@ -772,7 +788,12 @@ def jupytext_single_file(nb_file, args, log):
         # Otherwise, we only update the timestamp of the text file to make sure
         # they remain more recent than the ipynb file, for compatibility with the
         # Jupytext contents manager for Jupyter
-        if not modified and not path.endswith(".ipynb"):
+        if args.use_source_timestamp:
+            log(
+                f"[jupytext] Setting the timestamp of {shlex.quote(path)} equal to that of {shlex.quote(nb_file)}"
+            )
+            os.utime(path, (os.stat(path).st_atime, os.stat(nb_file).st_mtime))
+        elif not modified and not path.endswith(".ipynb"):
             log(f"[jupytext] Updating the timestamp of {shlex.quote(path)}")
             os.utime(path, None)
 
@@ -798,7 +819,9 @@ def jupytext_single_file(nb_file, args, log):
             base_path(nb_dest, dest_fmt)
 
         # Describe what jupytext is doing
-        if os.path.isfile(nb_dest) and args.update:
+        if save_in_place:
+            action = ""
+        elif os.path.isfile(nb_dest) and args.update:
             if not nb_dest.endswith(".ipynb"):
                 raise ValueError("--update is only for ipynb files")
             action = " (destination file updated)"
@@ -809,34 +832,39 @@ def jupytext_single_file(nb_file, args, log):
         else:
             action = ""
 
+        formats = notebook.metadata.get("jupytext", {}).get("formats")
+        formats = long_form_multiple_formats(formats)
+        if formats:
+            try:
+                base_path_out, _ = find_base_path_and_format(nb_dest, formats)
+            except InconsistentPath:
+                # Drop 'formats' if the destination is not part of the paired notebooks
+                formats = {}
+                notebook.metadata.get("jupytext", {}).pop("formats")
+
         lazy_write(nb_dest, fmt=dest_fmt, action=action)
 
+        nb_dest_in_pair = formats and any(
+            os.path.exists(alt_path) and os.path.samefile(nb_dest, alt_path)
+            for alt_path, _ in paired_paths(nb_file, fmt, formats)
+        )
+
+        if (
+            nb_dest_in_pair
+            and os.path.isfile(nb_file)
+            and not nb_file.endswith(".ipynb")
+            and os.path.isfile(nb_dest)
+            and nb_dest.endswith(".ipynb")
+        ):
+            # If the destination is an ipynb file and is in the pair, then we
+            # update the original text file timestamp, as required by our Content Manager
+            # Otherwise Jupyter will refuse to open the paired notebook #335
+            # NB: An alternative is --use-source-timestamp
+            lazy_write(nb_file, update_timestamp_only=True)
+
     # c. Synchronize paired notebooks
-    if args.sync:
-        # Also update the original notebook if the notebook was modified
-        if modified:
-            inputs_nb_file = None
-
-        def write_function(path, fmt):
-            lazy_write(
-                path,
-                fmt,
-                update_timestamp_only=(path == inputs_nb_file),
-            )
-
-        formats = notebook_formats(notebook, config, nb_file)
-        write_pair(nb_file, formats, write_function)
-        return untracked_files
-
-    if (
-        os.path.isfile(nb_file)
-        and nb_dest.endswith(".ipynb")
-        and not nb_file.endswith(".ipynb")
-        and notebook.metadata.get("jupytext", {}).get("formats") is not None
-    ):
-        # Update the original text file timestamp, as required by our Content Manager
-        # Otherwise Jupyter will refuse to open the paired notebook #335
-        lazy_write(nb_file, update_timestamp_only=True)
+    elif args.sync:
+        write_pair(nb_file, formats, lazy_write)
 
     return untracked_files
 
@@ -934,6 +962,43 @@ class InconsistentVersions(ValueError):
     """An error raised when two paired files in the git index contain inconsistent representations"""
 
 
+def file_in_git_index(path):
+    if not os.path.isfile(path):
+        return False
+    return system("git", "status", "--porcelain", path).strip().startswith(("M", "A"))
+
+
+def git_timestamp(path):
+    if not os.path.isfile(path):
+        return None
+
+    # Files that are in the git index are considered most recent
+    if file_in_git_index(path):
+        return float("inf")
+
+    # Return the commit timestamp
+    try:
+        git_ts_str = system("git", "log", "-1", "--pretty=%ct", path).strip()
+    except SystemExit as err:
+        if err.code == 128:
+            # git not initialized
+            git_ts_str = ""
+        else:
+            raise
+
+    if git_ts_str:
+        return float(git_ts_str)
+
+    # The file is not in the git index
+    return get_timestamp(path)
+
+
+def get_timestamp(path):
+    if not os.path.isfile(path):
+        return None
+    return os.lstat(path).st_mtime
+
+
 def load_paired_notebook(notebook, fmt, config, formats, nb_file, log, pre_commit_mode):
     """Update the notebook with the inputs and outputs of the most recent paired files"""
     if not formats:
@@ -943,19 +1008,6 @@ def load_paired_notebook(notebook, fmt, config, formats, nb_file, log, pre_commi
     _, fmt_with_prefix_suffix = find_base_path_and_format(nb_file, formats)
     fmt.update(fmt_with_prefix_suffix)
 
-    def file_in_git_index(path):
-        return system("git", "status", "--porcelain", path).startswith(("M", "A"))
-
-    use_git_index_rather_than_timestamp = pre_commit_mode and file_in_git_index(nb_file)
-
-    def get_timestamp(path):
-        if not os.path.isfile(path):
-            return None
-        if use_git_index_rather_than_timestamp:
-            # Files that are in the git index are considered more recent
-            return file_in_git_index(path)
-        return os.lstat(path).st_mtime
-
     def read_one_file(path, fmt):
         if path == nb_file:
             return notebook
@@ -963,20 +1015,20 @@ def load_paired_notebook(notebook, fmt, config, formats, nb_file, log, pre_commi
         log(f"[jupytext] Loading {shlex.quote(path)}")
         return read(path, fmt=fmt, config=config)
 
-    if use_git_index_rather_than_timestamp:
+    if pre_commit_mode and file_in_git_index(nb_file):
         # We raise an error if two representations of this notebook in the git index are inconsistent
         nb_files_in_git_index = sorted(
             (
                 (alt_path, alt_fmt)
                 for alt_path, alt_fmt in paired_paths(nb_file, fmt, formats)
-                if get_timestamp(alt_path)
+                if file_in_git_index(alt_path)
             ),
             key=lambda x: 0 if x[1]["extension"] != ".ipynb" else 1,
         )
 
         if len(nb_files_in_git_index) > 1:
             path0, fmt0 = nb_files_in_git_index[0]
-            with open(path0) as fp:
+            with open(path0, encoding="utf-8") as fp:
                 text0 = fp.read()
             for alt_path, alt_fmt in nb_files_in_git_index[1:]:
                 nb = read(alt_path, fmt=alt_fmt, config=config)
@@ -991,13 +1043,15 @@ def load_paired_notebook(notebook, fmt, config, formats, nb_file, log, pre_commi
                         f"    git reset {shlex.quote(path0)} && git checkout -- {shlex.quote(path0)}\n"
                     )
 
-    inputs, outputs = latest_inputs_and_outputs(nb_file, fmt, formats, get_timestamp)
+    inputs, outputs = latest_inputs_and_outputs(
+        nb_file, fmt, formats, git_timestamp if pre_commit_mode else get_timestamp
+    )
     notebook = read_pair(inputs, outputs, read_one_file)
 
     return notebook, inputs.path, outputs.path
 
 
-def exec_command(command, input=None, capture=False):
+def exec_command(command, input=None, capture=False, warn_only=False):
     """Execute the desired command, and pipe the given input into it"""
     assert isinstance(command, list)
     sys.stdout.write("[jupytext] Executing {}\n".format(" ".join(command)))
@@ -1016,17 +1070,22 @@ def exec_command(command, input=None, capture=False):
         sys.stderr.write(err.decode("utf-8"))
 
     if process.returncode:
-        sys.stderr.write(
-            "[jupytext] Error: The command '{}' exited with code {}\n".format(
-                " ".join(command), process.returncode
-            )
+        msg = f"The command '{' '.join(command)}' exited with code {process.returncode}"
+        hint = (
+            "" if warn_only else " (use --warn-only to turn this error into a warning)"
         )
-        raise SystemExit(process.returncode)
+        sys.stderr.write(
+            f"[jupytext] {'Warning' if warn_only else 'Error'}: {msg}{hint}\n"
+        )
+        if not warn_only:
+            raise SystemExit(process.returncode)
 
     return out
 
 
-def pipe_notebook(notebook, command, fmt="py:percent", update=True, prefix=None):
+def pipe_notebook(
+    notebook, command, fmt="py:percent", update=True, prefix=None, warn_only=False
+):
     """Pipe the notebook, in the desired representation, to the given command. Update the notebook
     with the returned content if desired."""
     if command in ["black", "flake8", "autopep8"]:
@@ -1062,7 +1121,9 @@ def pipe_notebook(notebook, command, fmt="py:percent", update=True, prefix=None)
             tmp.close()
 
             exec_command(
-                [cmd if cmd != "{}" else tmp.name for cmd in command], capture=update
+                [cmd if cmd != "{}" else tmp.name for cmd in command],
+                capture=update,
+                warn_only=warn_only,
             )
 
             if not update:
@@ -1072,7 +1133,9 @@ def pipe_notebook(notebook, command, fmt="py:percent", update=True, prefix=None)
         finally:
             os.remove(tmp.name)
     else:
-        cmd_output = exec_command(command, text.encode("utf-8"), capture=update)
+        cmd_output = exec_command(
+            command, text.encode("utf-8"), capture=update, warn_only=warn_only
+        )
 
         if not update:
             return notebook

@@ -1,4 +1,5 @@
 import os
+from copy import deepcopy
 from shutil import copyfile
 
 import pytest
@@ -110,9 +111,8 @@ def test_apply_black_through_jupytext(tmpdir, nb_file):
     compare_notebooks(nb_now, nb_black, compare_ids=True)
 
     # Write to another folder using dots
-    script_fmt = os.path.join("..", "script_folder//py:percent")
     write(nb_org, tmp_ipynb)
-    jupytext([tmp_ipynb, "--to", script_fmt, "--pipe", "black"])
+    jupytext([tmp_ipynb, "--to", "../script_folder//py:percent", "--pipe", "black"])
     assert os.path.isfile(tmp_py)
     nb_now = read(tmp_py)
     nb_now.metadata = metadata
@@ -228,3 +228,77 @@ def test_black_through_tempfile(
     jupytext([tmp_md, "--pipe", "black {}"])
     with open(tmp_md) as fp:
         compare(fp.read(), black)
+
+
+@requires_black
+def test_pipe_black_removes_lines_to_next_cell_metadata(
+    tmpdir,
+    cwd_tmpdir,
+    text="""# %%
+def func():
+    return 42
+# %%
+func()""",
+):
+    tmpdir.join("notebook.py").write(text)
+    jupytext(["--set-formats", "ipynb,py:percent", "notebook.py"])
+
+    nb = read(tmpdir.join("notebook.ipynb"))
+    assert nb.cells[0].metadata["lines_to_next_cell"] == 0
+
+    jupytext(["--sync", "notebook.py", "--pipe", "black"])
+    nb = read(tmpdir.join("notebook.ipynb"))
+    assert "lines_to_next_cell" not in nb.cells[0].metadata
+
+    new_text = tmpdir.join("notebook.py").read()
+    assert "\n\n# %%\nfunc()" in new_text
+
+
+@requires_black
+@pytest.mark.parametrize(
+    "code,black_should_fail",
+    [("myvar = %dont_format_me", False), ("incomplete_instruction = (...", True)],
+)
+def test_pipe_black_uses_warn_only_781(
+    tmpdir, cwd_tmpdir, code, black_should_fail, python_notebook, capsys
+):
+    nb = python_notebook
+    nb.cells.append(new_code_cell(code))
+    write(nb, "notebook.ipynb")
+
+    if not black_should_fail:
+        jupytext(["--pipe", "black", "notebook.ipynb"])
+        return
+
+    with pytest.raises(SystemExit):
+        jupytext(["--pipe", "black", "notebook.ipynb"])
+
+    out, err = capsys.readouterr()
+    assert "Error: The command 'black -' exited with code" in err
+    assert "--warn-only" in err
+
+    # With warn-only we just get a warning
+    jupytext(["--pipe", "black", "notebook.ipynb", "--warn-only"])
+    out, err = capsys.readouterr()
+    assert "Warning: The command 'black -' exited with code" in err
+
+    # If black fails the notebook should be left unchanged
+    actual = read("notebook.ipynb")
+    compare_notebooks(actual, nb)
+
+
+def test_pipe_black_preserve_outputs(notebook_with_outputs, tmpdir, cwd_tmpdir, capsys):
+    write(notebook_with_outputs, "test.ipynb")
+    jupytext(["--pipe", "black", "test.ipynb"])
+
+    # Outputs are preserved
+    nb = read("test.ipynb")
+    expected = deepcopy(notebook_with_outputs)
+    expected.cells[0].source = "1 + 1"
+    compare_notebooks(nb, expected)
+
+    # No mention of --update
+    out, err = capsys.readouterr()
+    assert not err
+    assert "replaced" not in out
+    assert "--update" not in out

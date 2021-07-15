@@ -1,6 +1,52 @@
 Jupytext ChangeLog
 ==================
 
+1.11.4 (2021-07-14)
+-------------------
+
+**Changed**
+- The documentation illustrates how the `cell_markers` option (and the other ones) can be set directly in the `jupytext.toml` config file ([#809](https://github.com/mwouts/jupytext/issues/809)).
+- The dependency on `mdit-py-plugins` through `markdown-it-py[plugins]` was made explicit ([#814](https://github.com/mwouts/jupytext/issues/814))
+
+**Fixed**
+- System assigns of the form `var = !cmd` are commented out ([#816](https://github.com/mwouts/jupytext/issues/816))
+- Fixed an `InconsistentPath` issue with notebooks paired with scripts in a folder. The prefix in the Jupytext formats always use /, while paths might use either / or \ ([#806](https://github.com/mwouts/jupytext/issues/806))
+- Tests that cannot succeed are skipped when either the Jupytext folder is not a git repository, when `sphinx-gallery` is too recent, or when `pandoc` is not up-to-date ([#814](https://github.com/mwouts/jupytext/issues/814))
+- Removed the mention of '--update' in 'jupytext --pipe' since outputs are preserved already
+
+
+1.11.3 (2021-06-10)
+-------------------
+
+**Changed**
+- Jupytext CLI has a new option `--use-source-timestamp` that sets the last modification time of the output file equal to that of the source file (this avoids having to change the timestamp of the source file) ([#784](https://github.com/mwouts/jupytext/issues/784))
+- In the pre-commit mode, Jupytext now uses the commit timestamp to determine which file in the pair is the most recent ([#780](https://github.com/mwouts/jupytext/issues/780))
+
+
+**Fixed**
+- Dependencies of the JupyterLab extension have been upgraded to fix a security vulnerability ([#798](https://github.com/mwouts/jupytext/pull/798))
+- The `--warn-only` option also applies to pipes. Use this if the pipe may fail, e.g. if you apply `black` on a possibly invalid script ([#781](https://github.com/mwouts/jupytext/issues/781))
+- Variables assigned from a magic command are commented out in `py` scripts ([#781](https://github.com/mwouts/jupytext/issues/781))
+- Fixed a round-trip issue on notebooks that have None/null in their metadata ([#792](https://github.com/mwouts/jupytext/issues/792))
+
+
+1.11.2 (2021-05-02)
+-------------------
+
+**Changed**
+- Jupytext's dependency markdown-it-py is now in v1 ([#769](https://github.com/mwouts/jupytext/issues/769))
+- The optional argument `fmt` in `jupytext.reads` now has the default value `None` - thanks to Yuvi Panda ([#763](https://github.com/mwouts/jupytext/issues/763))
+
+**Fixed**
+- All text files are opened with an explicit `utf-8` encoding ([#770](https://github.com/mwouts/jupytext/issues/770))
+- Previously `--pipe black` was not always putting two blank lines between functions. To fix that we load the internal Jupytext
+  cell metadata like `lines_to_next_cell` from the text file rather than ipynb ([#761](https://github.com/mwouts/jupytext/issues/761))
+- The timestamp of the source file is not updated any more when the destination file is not in the pair ([#765](https://github.com/mwouts/jupytext/issues/765), [#767](https://github.com/mwouts/jupytext/issues/767))
+
+**Added**
+- A new test documents when the `ipython3` pygment lexer appears in MyST Markdown files ([#759](https://github.com/mwouts/jupytext/issues/759))
+
+
 1.11.1 (2021-03-26)
 -------------------
 

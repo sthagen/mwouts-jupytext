@@ -18,6 +18,7 @@ import jupytext
 
 from .config import (
     JUPYTEXT_CONFIG_FILES,
+    PYPROJECT_FILE,
     JupytextConfiguration,
     JupytextConfigurationError,
     find_global_jupytext_configuration_file,
@@ -343,15 +344,6 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
             if not outputs.timestamp:
                 set_kernelspec_from_language(model["content"])
 
-            # Trust code cells when they have no output
-            for cell in model["content"].cells:
-                if (
-                    cell.cell_type == "code"
-                    and not cell.outputs
-                    and cell.metadata.get("trusted") is False
-                ):
-                    cell.metadata["trusted"] = True
-
             return model
 
         def new_untitled(self, path="", type="", ext=""):
@@ -476,6 +468,15 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                 path = directory + "/" + jupytext_config_file
                 if self.file_exists(path):
                     return path
+
+            pyproject_path = directory + "/" + PYPROJECT_FILE
+            if self.file_exists(pyproject_path):
+                import toml
+
+                model = self.get(pyproject_path, type="file")
+                doc = toml.loads(model["content"])
+                if doc.get("tool", {}).get("jupytext") is not None:
+                    return pyproject_path
 
             if not directory:
                 return None

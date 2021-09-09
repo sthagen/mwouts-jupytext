@@ -1,14 +1,16 @@
 Jupytext ChangeLog
 ==================
 
-1.11.5+dev (2021-09-??)
------------------------
+1.12.0 (2021-09-09)
+-------------------
 
 **Added**
-- Jupytext can be configured through the `pyproject.toml` file. Thanks to Robin Brown for this contribution! (#828)
+- Jupytext supports Quarto notebooks (with `.qmd` extension) ([#837](https://github.com/mwouts/jupytext/issues/837))
+- Jupytext can be configured through the `pyproject.toml` file. Thanks to Robin Brown for this contribution! ([#828](https://github.com/mwouts/jupytext/issues/828))
+- Jupytext now supports OCaml files with `.ml` extension. Thanks to Quentin Fortier for getting this started ([#832](https://github.com/mwouts/jupytext/issues/832))
 
 **Fixed**
-- Added more test to make sure that notebooks can be trusted. In practice, notebooks could not be trusted in JupyterLab<3.0.13 because of the absence of cell ids (#826)
+- Added more test to make sure that notebooks can be trusted. In practice, notebooks could not be trusted in JupyterLab<3.0.13 because of the absence of cell ids ([#826](https://github.com/mwouts/jupytext/issues/826))
 
 
 1.11.5 (2021-08-31)

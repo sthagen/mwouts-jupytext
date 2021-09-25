@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import itertools
 import os
 import sys
 import time
@@ -861,10 +860,8 @@ def test_remove_jupytext_metadata(tmpdir, cwd_tmpdir):
     }
 
 
-@pytest.mark.parametrize(
-    "nb_file,fmt",
-    itertools.product(list_notebooks("ipynb_py"), ["py:light", "py:percent", "md"]),
-)
+@pytest.mark.parametrize("nb_file", list_notebooks("ipynb_py"))
+@pytest.mark.parametrize("fmt", ["py:light", "py:percent", "md"])
 def test_convert_and_update_preserves_notebook(nb_file, fmt, tmpdir, cwd_tmpdir):
     # cannot encode magic parameters in markdown yet
     if ("magic" in nb_file or "LateX" in nb_file) and fmt == "md":
@@ -880,6 +877,12 @@ def test_convert_and_update_preserves_notebook(nb_file, fmt, tmpdir, cwd_tmpdir)
 
     nb_org = read(nb_file)
     nb_now = read(tmp_ipynb)
+
+    # The cell marker changes from """ to r""" on the LateX notebook #836
+    if "LateX" in nb_file and fmt == "py:percent":
+        last_cell = nb_now.cells[-1]
+        last_cell.metadata["cell_marker"] = last_cell.metadata["cell_marker"][1:]
+
     compare(nb_now, nb_org)
 
 
@@ -1180,7 +1183,16 @@ def test_diff(tmpdir, cwd_tmpdir, capsys):
     write(new_notebook(cells=[new_code_cell("1 + 1")]), "test.ipynb")
     write(new_notebook(cells=[new_code_cell("2 + 2")]), "test.py", fmt="py:percent")
 
-    jupytext(["--to", "py:percent", "test.ipynb", "--diff"])
+    jupytext(["--diff", "test.py", "test.ipynb"])
+    captured = capsys.readouterr()
+    assert "-2 + 2\n+1 + 1" in captured.out
+
+
+def test_show_changes(tmpdir, cwd_tmpdir, capsys):
+    write(new_notebook(cells=[new_code_cell("1 + 1")]), "test.ipynb")
+    write(new_notebook(cells=[new_code_cell("2 + 2")]), "test.py", fmt="py:percent")
+
+    jupytext(["--to", "py:percent", "test.ipynb", "--show-changes"])
     captured = capsys.readouterr()
     assert "-2 + 2\n+1 + 1" in captured.out
 
@@ -1356,7 +1368,7 @@ def test_use_source_timestamp(tmpdir, cwd_tmpdir, python_notebook, capsys, forma
     if formats == "ipynb,py":
         from tornado.web import HTTPError
 
-        with pytest.raises(HTTPError, match="seems more recent than test.py"):
+        with pytest.raises(HTTPError, match="is more recent than test.py"):
             cm.get("test.ipynb")
     else:
         cm.get("test.ipynb")

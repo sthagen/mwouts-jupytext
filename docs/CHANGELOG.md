@@ -1,6 +1,17 @@
 Jupytext ChangeLog
 ==================
 
+1.13.4 (2021-12-12)
+-------------------
+
+**Changed**
+- The test suite filters the warnings that don't belong to Jupytext ([#823](https://github.com/mwouts/jupytext/issues/823))
+
+**Fixed**
+- The parsing of notebooks that don't have a YAML header (like `docs/formats.md`) was improved.
+- The test suite works with `pytest-randomly` ([#838](https://github.com/mwouts/jupytext/issues/838))
+
+
 1.13.3 (2021-12-04)
 -------------------
 
@@ -15,7 +26,7 @@ Jupytext ChangeLog
 
 **Changed**
 - The extension for Jupyter Lab benefited from a series of improvements contributed by [Frédéric Collonval](https://github.com/fcollonval):
-  - A new "Jupytext Notebook" factory offers the option to open text notebooks directly with the notebook view ([#803](https://github.com/mwouts/jupytext/issues/803)). To use it, follow the instructions in the [documentation](https://github.com/mwouts/jupytext/blob/main/docs/index.md#install).
+  - A new "Jupytext Notebook" factory offers the option to open text notebooks directly with the notebook view ([#803](https://github.com/mwouts/jupytext/issues/803)). To use it, follow the instructions in the [documentation](https://github.com/mwouts/jupytext/blob/main/docs/index.md#Install).
   - The ICommandPalette is optional, for compatibility with RISE within JupyterLab [RISE[#605](https://github.com/mwouts/jupytext/issues/605)](https://github.com/damianavila/RISE/pull/605)
   - Added support for translation
 - Branch `master` was renamed to `main` (links in the documentation were updated)

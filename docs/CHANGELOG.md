@@ -1,6 +1,43 @@
 Jupytext ChangeLog
 ==================
 
+1.13.8 (2022-04-04)
+-------------------
+
+**Fixed**
+- Text-only notebooks are always trusted (as they don't include any output cells) ([#941](https://github.com/mwouts/jupytext/issues/941))
+- We made sure that our tests also work in absence of a Python kernel ([#906](https://github.com/mwouts/jupytext/issues/906))
+- The coverage of the `tests` folder has been restored at 100%
+- Bash commands like `!{cmd}` are now correctly escaped in the `py:percent` format ([#938](https://github.com/mwouts/jupytext/issues/938))
+
+**Added**
+- Added Tcl as a supported language ([#930](https://github.com/mwouts/jupytext/issues/930)) - thanks to [shishitao](https://github.com/shishitao) for this contribution
+- Added Maxima as a supported language ([#927](https://github.com/mwouts/jupytext/issues/927)) - thanks to [Alberto Lusiani](https://github.com/alusiani) for contributing a sample Maxima notebook.
+
+**Changed**
+- The Jupytext contents manager is derived from the `LargeFileManager` imported from `jupyter_server` rathen than `notebook` ([#933](https://github.com/mwouts/jupytext/issues/933))
+- Allow for markdown-it-py v2 ([#924](https://github.com/mwouts/jupytext/issues/924))
+- We have updated the hooks used in the test pre-commits, to fix an issue on the CI ([#940](https://github.com/mwouts/jupytext/issues/940), [#942](https://github.com/mwouts/jupytext/issues/942))
+- We updated the `yarn.lock` file for the jupyter lab extension to address security vulnerabilities ([#904](https://github.com/mwouts/jupytext/issues/904), [#925](https://github.com/mwouts/jupytext/issues/925), [#935](https://github.com/mwouts/jupytext/issues/935), [#939](https://github.com/mwouts/jupytext/issues/939))
+
+
+1.13.7 (2022-02-09)
+-------------------
+
+**Fixed**
+- The Jupytext CLI only suggest `--update` when the target is an .ipynb file ([#905](https://github.com/mwouts/jupytext/issues/905)) - thanks to [st--](https://github.com/st--) for this contribution
+- We made sure that commands like `cat notebook.md | jupytext --execute` work ([#908](https://github.com/mwouts/jupytext/issues/908))
+
+**Added**
+- Added Haskell as supported language ([#909](https://github.com/mwouts/jupytext/issues/909)) - thanks to [codeweber](https://github.com/codeweber) for this contribution
+
+**Changed**
+- We have updated the pre-commit hooks and in particular we switched to the first stable version of `black==22.1.0`.
+- We require `pandoc==2.16.2` for testing. The representation for code cells changed from ` ``` {.python}` to ` ``` python` in that version of Pandoc ([#906](https://github.com/mwouts/jupytext/issues/906)). We don't use `pandoc>=2.17` in tests at the moment because of the introduction of cell ids that cannot be filtered.
+- Jupytext will not add anymore a UTF-8 encoding on Python scripts when the notebook contains non-ascii characters ([#907](https://github.com/mwouts/jupytext/issues/907))
+- We have added `pyupgrade` to the pre-commit hooks used for developing Jupytext ([#907](https://github.com/mwouts/jupytext/issues/907))
+
+
 1.13.6 (2022-01-11)
 -------------------
 

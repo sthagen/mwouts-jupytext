@@ -58,7 +58,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
 
             # Configuration cache, useful when notebooks are listed in a given directory
             self.cached_config = namedtuple("cached_config", "path config_file config")
-            self.super = super(JupytextContentsManager, self)
+            self.super = super()
             self.super.__init__(*args, **kwargs)
 
         def all_nb_extensions(self, config):
@@ -175,12 +175,8 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                 return write_pair(path, jupytext_formats, save_one_file)
 
             except Exception as e:
-                self.log.error(
-                    u"Error while saving file: %s %s", path, e, exc_info=True
-                )
-                raise HTTPError(
-                    500, u"Unexpected error while saving file: %s %s" % (path, e)
-                )
+                self.log.error("Error while saving file: %s %s", path, e, exc_info=True)
+                raise HTTPError(500, f"Unexpected error while saving file: {path} {e}")
 
         def get(
             self,
@@ -221,9 +217,15 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                         model["content"] = reads(
                             model["content"], fmt=fmt, config=config
                         )
+                        # mark all code cells from text notebooks as 'trusted'
+                        # as they don't have any outputs, cf. #941
+                        for cell in model["content"].cells:
+                            if cell.cell_type == "code":
+                                cell["metadata"]["trusted"] = True
+
                     except Exception as err:
                         self.log.error(
-                            u"Error while reading file: %s %s", path, err, exc_info=True
+                            "Error while reading file: %s %s", path, err, exc_info=True
                         )
                         raise HTTPError(500, str(err))
 
@@ -263,7 +265,7 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                     self.update_paired_notebooks(path, formats)
                 except InconsistentPath as err:
                     self.log.error(
-                        u"Unable to read paired notebook: %s %s",
+                        "Unable to read paired notebook: %s %s",
                         path,
                         err,
                         exc_info=True,
@@ -292,12 +294,12 @@ def build_jupytext_contents_manager_class(base_contents_manager_class):
                 if alt_path == path:
                     return model["content"]
                 if alt_path.endswith(".ipynb"):
-                    self.log.info(u"Reading OUTPUTS from {}".format(alt_path))
+                    self.log.info(f"Reading OUTPUTS from {alt_path}")
                     return self.super.get(
                         alt_path, content=True, type="notebook", format=format
                     )["content"]
 
-                self.log.info(u"Reading SOURCE from {}".format(alt_path))
+                self.log.info(f"Reading SOURCE from {alt_path}")
                 text = self.super.get(
                     alt_path, content=True, type="file", format=format
                 )["content"]
@@ -372,7 +374,7 @@ to your jupytext.toml file
                     raise
                 except Exception as err:
                     self.log.error(
-                        u"Error while reading file: %s %s", path, err, exc_info=True
+                        "Error while reading file: %s %s", path, err, exc_info=True
                     )
                     raise HTTPError(500, str(err))
 
@@ -403,7 +405,7 @@ to your jupytext.toml file
             untitled = self.untitled_notebook
             config = self.get_config(path)
             name = self.increment_notebook_filename(config, untitled + ext, path)
-            path = u"{0}/{1}".format(path, name)
+            path = f"{path}/{name}"
 
             model = {"type": "notebook"}
             if format_name:
@@ -423,13 +425,13 @@ to your jupytext.toml file
 
             for i in itertools.count():
                 if i:
-                    insert_i = "{}".format(i)
+                    insert_i = f"{i}"
                 else:
                     insert_i = ""
                 basename_i = basename + insert_i
                 name = basename_i + ext
                 if not any(
-                    self.exists(u"{}/{}{}".format(path, basename_i, nb_ext))
+                    self.exists(f"{path}/{basename_i}{nb_ext}")
                     for nb_ext in config.notebook_extensions
                 ):
                     break
@@ -470,7 +472,7 @@ to your jupytext.toml file
                 raise
             except Exception as err:
                 self.log.error(
-                    u"Error while renaming file from %s to %s: %s",
+                    "Error while renaming file from %s to %s: %s",
                     old_path,
                     new_path,
                     err,
@@ -553,12 +555,12 @@ to your jupytext.toml file
                     self.cached_config.path = parent_dir
                 except JupytextConfigurationError as err:
                     self.log.error(
-                        u"Error while reading config file: %s %s",
+                        "Error while reading config file: %s %s",
                         config_file,
                         err,
                         exc_info=True,
                     )
-                    raise HTTPError(500, "{}".format(err))
+                    raise HTTPError(500, f"{err}")
 
             if self.cached_config.config is not None:
                 self.log.debug(
@@ -575,11 +577,22 @@ to your jupytext.toml file
 
 
 try:
-    from notebook.services.contents.largefilemanager import LargeFileManager
+    # The LargeFileManager is taken by default from jupyter_server if available
+    from jupyter_server.services.contents.largefilemanager import LargeFileManager
 
     TextFileContentsManager = build_jupytext_contents_manager_class(LargeFileManager)
 except ImportError:
-    # Older versions of notebook do not have the LargeFileManager #217
-    from notebook.services.contents.filemanager import FileContentsManager
+    # If we can't find jupyter_server then we take it from notebook
+    try:
+        from notebook.services.contents.largefilemanager import LargeFileManager
 
-    TextFileContentsManager = build_jupytext_contents_manager_class(FileContentsManager)
+        TextFileContentsManager = build_jupytext_contents_manager_class(
+            LargeFileManager
+        )
+    except ImportError:
+        # Older versions of notebook do not have the LargeFileManager #217
+        from notebook.services.contents.filemanager import FileContentsManager
+
+        TextFileContentsManager = build_jupytext_contents_manager_class(
+            FileContentsManager
+        )

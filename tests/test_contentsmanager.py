@@ -1,5 +1,3 @@
-# coding: utf-8
-
 import itertools
 import logging
 import os
@@ -25,6 +23,7 @@ from .utils import (
     requires_pandoc,
     requires_quarto,
     requires_sphinx_gallery,
+    requires_user_kernel_python3,
 )
 
 
@@ -421,12 +420,12 @@ def test_load_save_rename_nbpy_default_config(nb_file, tmpdir):
 
 @pytest.mark.parametrize("nb_file", list_notebooks("ipynb_py"))
 def test_load_save_rename_non_ascii_path(nb_file, tmpdir):
-    tmp_ipynb = u"notebôk.ipynb"
-    tmp_nbpy = u"notebôk.nb.py"
+    tmp_ipynb = "notebôk.ipynb"
+    tmp_nbpy = "notebôk.nb.py"
 
     cm = jupytext.TextFileContentsManager()
     cm.formats = "ipynb,.nb.py"
-    tmpdir = u"" + str(tmpdir)
+    tmpdir = "" + str(tmpdir)
     cm.root_dir = tmpdir
 
     # open ipynb, save nb.py, reopen
@@ -444,20 +443,20 @@ def test_load_save_rename_non_ascii_path(nb_file, tmpdir):
     cm.save(model=notebook_model(nb), path=tmp_ipynb)
 
     # rename notebôk.nb.py to nêw.nb.py
-    cm.rename(tmp_nbpy, u"nêw.nb.py")
+    cm.rename(tmp_nbpy, "nêw.nb.py")
     assert not os.path.isfile(os.path.join(tmpdir, tmp_ipynb))
     assert not os.path.isfile(os.path.join(tmpdir, tmp_nbpy))
 
-    assert os.path.isfile(os.path.join(tmpdir, u"nêw.ipynb"))
-    assert os.path.isfile(os.path.join(tmpdir, u"nêw.nb.py"))
+    assert os.path.isfile(os.path.join(tmpdir, "nêw.ipynb"))
+    assert os.path.isfile(os.path.join(tmpdir, "nêw.nb.py"))
 
     # rename nêw.ipynb to notebôk.ipynb
-    cm.rename(u"nêw.ipynb", tmp_ipynb)
+    cm.rename("nêw.ipynb", tmp_ipynb)
     assert os.path.isfile(os.path.join(tmpdir, tmp_ipynb))
     assert os.path.isfile(os.path.join(tmpdir, tmp_nbpy))
 
-    assert not os.path.isfile(os.path.join(tmpdir, u"nêw.ipynb"))
-    assert not os.path.isfile(os.path.join(tmpdir, u"nêw.nb.py"))
+    assert not os.path.isfile(os.path.join(tmpdir, "nêw.ipynb"))
+    assert not os.path.isfile(os.path.join(tmpdir, "nêw.nb.py"))
 
 
 @pytest.mark.parametrize("nb_file", list_notebooks("ipynb_py")[:1])
@@ -652,7 +651,7 @@ def test_save_to_percent_format(nb_file, tmpdir):
         text_jl = stream.read()
 
     # Parse the YAML header
-    metadata, _, _, _ = header_to_metadata_and_cell(text_jl.splitlines(), "#")
+    metadata, _, _, _ = header_to_metadata_and_cell(text_jl.splitlines(), "#", "")
     assert metadata["jupytext"]["formats"] == "ipynb,jl:percent"
 
 
@@ -843,8 +842,8 @@ def test_pair_notebook_with_dot(nb_file, tmpdir):
 @pytest.mark.parametrize("nb_file", list_notebooks("ipynb_py")[:1])
 def test_preferred_format_allows_to_read_others_format(nb_file, tmpdir):
     # 1. write py ipynb
-    tmp_ipynb = u"notebook.ipynb"
-    tmp_nbpy = u"notebook.py"
+    tmp_ipynb = "notebook.ipynb"
+    tmp_nbpy = "notebook.py"
 
     cm = jupytext.TextFileContentsManager()
     cm.preferred_jupytext_formats_save = "py:light"
@@ -884,7 +883,7 @@ def test_preferred_format_allows_to_read_others_format(nb_file, tmpdir):
 
 
 def test_preferred_formats_read_auto(tmpdir):
-    tmp_py = u"notebook.py"
+    tmp_py = "notebook.py"
     with open(str(tmpdir.join(tmp_py)), "w") as script:
         script.write(
             """# cell one
@@ -1217,6 +1216,7 @@ def test_global_pairing_allows_to_save_other_file_types(nb_file, tmpdir):
     compare_notebooks(nb2, nb)
 
 
+@requires_user_kernel_python3
 @pytest.mark.parametrize("nb_file", list_notebooks("R"))
 def test_python_kernel_preserves_R_files(nb_file, tmpdir):
     """Opening a R file with a Jupyter server that has no R kernel should not modify the file"""
@@ -1871,7 +1871,7 @@ def fs_meta_manager(tmpdir):
     cm = cm_class(parent=None, log=logger)
     cm.initResource(
         {
-            "url": "osfs://{}".format(tmpdir),
+            "url": f"osfs://{tmpdir}",
         }
     )
     return cm
@@ -1895,7 +1895,7 @@ def test_jupytext_jupyter_fs_metamanager(tmpdir):
 
     # list the directory
     directory = cm.get(osfs + ":/")
-    assert set(file["name"] for file in directory["content"]) == {
+    assert {file["name"] for file in directory["content"]} == {
         "text.md",
         "text_notebook.md",
         "notebook.ipynb",
@@ -1940,7 +1940,7 @@ def test_config_jupytext_jupyter_fs_meta_manager(tmpdir):
 
     # list the directory
     directory = cm.get(osfs + ":/")
-    assert set(file["name"] for file in directory["content"]) == {
+    assert {file["name"] for file in directory["content"]} == {
         "jupytext.toml",
         "text.md",
         "text_notebook.md",

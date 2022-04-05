@@ -1,13 +1,21 @@
 import shutil
+from unittest import mock
 
 import pytest
 
 from jupytext import read
 from jupytext.cli import jupytext
+from jupytext.version import __version__
 
-from .utils import requires_ir_kernel, requires_nbconvert, skip_on_windows
+from .utils import (
+    requires_ir_kernel,
+    requires_nbconvert,
+    requires_user_kernel_python3,
+    skip_on_windows,
+)
 
 
+@requires_user_kernel_python3
 @requires_nbconvert
 @skip_on_windows
 def test_pipe_nbconvert_execute(tmpdir):
@@ -37,6 +45,7 @@ def test_pipe_nbconvert_execute(tmpdir):
     assert nb.cells[0].outputs[0]["data"] == {"text/plain": "3"}
 
 
+@requires_user_kernel_python3
 @requires_nbconvert
 @skip_on_windows
 def test_pipe_nbconvert_execute_sync(tmpdir):
@@ -67,6 +76,7 @@ def test_pipe_nbconvert_execute_sync(tmpdir):
     assert nb.cells[0].outputs[0]["data"] == {"text/plain": "3"}
 
 
+@requires_user_kernel_python3
 @requires_nbconvert
 @skip_on_windows
 def test_execute(tmpdir, caplog, capsys):
@@ -86,6 +96,7 @@ def test_execute(tmpdir, caplog, capsys):
     assert nb.cells[0].outputs[0]["data"] == {"text/plain": "3"}
 
 
+@requires_user_kernel_python3
 @requires_nbconvert
 def test_execute_readme_ok(tmpdir):
     tmp_md = str(tmpdir.join("notebook.md"))
@@ -104,6 +115,7 @@ A readme with correct instructions
     jupytext(args=[tmp_md, "--execute"])
 
 
+@requires_user_kernel_python3
 @requires_nbconvert
 @skip_on_windows
 def test_execute_readme_not_ok(tmpdir):
@@ -128,6 +140,7 @@ a + 1
         jupytext(args=[tmp_md, "--execute"])
 
 
+@requires_user_kernel_python3
 @requires_nbconvert
 @skip_on_windows
 def test_execute_sync(tmpdir, caplog, capsys):
@@ -169,6 +182,7 @@ def test_execute_r(tmpdir, caplog, capsys):  # pragma: no cover
     assert nb.cells[0].outputs[0]["data"]["text/markdown"] == "6"
 
 
+@requires_user_kernel_python3
 @requires_nbconvert
 @skip_on_windows
 def test_execute_in_subfolder(tmpdir, caplog, capsys):
@@ -227,3 +241,50 @@ sum(ast.literal_eval(line) for line in text.splitlines())
     nb = read(tmp2_ipynb)
     assert len(nb.cells) == 3
     assert nb.cells[2].outputs[0]["data"] == {"text/plain": "3"}
+
+
+@pytest.fixture()
+def sample_md_notebook():
+    """This is a sample md notebook with an outdated version of Jupytext
+    and no kernel information, to test #908"""
+    return """---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .md
+      format_name: markdown
+      format_version: '1.1'
+      jupytext_version: 1.1.0
+---
+
+```python
+1 + 1
+```
+"""
+
+
+@requires_user_kernel_python3
+def test_execute_text_file_does_update_the_metadata(sample_md_notebook, tmp_path):
+    md_file = tmp_path / "nb.md"
+    md_file.write_text(sample_md_notebook)
+
+    jupytext([str(md_file), "--execute"])
+
+    new_md_text = md_file.read_text()
+    assert __version__ in new_md_text
+    assert "kernelspec" in new_md_text
+
+
+@requires_user_kernel_python3
+def test_cat_execute_does_not_update_the_metadata(sample_md_notebook, tmp_path):
+    md_file = tmp_path / "nb.md"
+    md_file.write_text(sample_md_notebook)
+
+    # read md notebook on stdin - this does the same as
+    # cat notebook.md | jupytext --execute
+    with open(md_file) as fp, mock.patch("sys.stdin", fp):
+        jupytext(["--execute"])
+
+    new_md_text = md_file.read_text()
+    assert __version__ not in new_md_text
+    assert "kernelspec" not in new_md_text

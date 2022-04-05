@@ -259,7 +259,7 @@ def get_format_implementation(ext, format_name=None):
                 format_name, ext, ", ".join(formats_for_extension)
             )
         )
-    raise JupytextFormatError("No format associated to extension '{}'".format(ext))
+    raise JupytextFormatError(f"No format associated to extension '{ext}'")
 
 
 def read_metadata(text, ext):
@@ -268,13 +268,14 @@ def read_metadata(text, ext):
     lines = text.splitlines()
 
     if ext in [".md", ".markdown", ".Rmd"]:
-        comment = ""
+        comment = comment_suffix = ""
     else:
         comment = _SCRIPT_EXTENSIONS.get(ext, {}).get("comment", "#")
+        comment_suffix = _SCRIPT_EXTENSIONS.get(ext, {}).get("comment_suffix", "")
 
-    metadata, _, _, _ = header_to_metadata_and_cell(lines, comment, ext)
+    metadata, _, _, _ = header_to_metadata_and_cell(lines, comment, comment_suffix, ext)
     if ext in [".r", ".R"] and not metadata:
-        metadata, _, _, _ = header_to_metadata_and_cell(lines, "#'", ext)
+        metadata, _, _, _ = header_to_metadata_and_cell(lines, "#'", "", ext)
 
     # MyST has the metadata at the root level
     if not metadata and ext in myst_extensions() and text.startswith("---"):
@@ -317,13 +318,11 @@ def guess_format(text, ext):
         comment = re.escape(unescaped_comment)
         language = _SCRIPT_EXTENSIONS[ext]["language"]
         twenty_hash_re = re.compile(r"^#( |)#{19,}\s*$")
-        double_percent_re = re.compile(r"^{}( %%|%%)$".format(comment))
-        double_percent_and_space_re = re.compile(r"^{}( %%|%%)\s".format(comment))
-        nbconvert_script_re = re.compile(
-            r"^{}( <codecell>| In\[[0-9 ]*\]:?)".format(comment)
-        )
-        vim_folding_markers_re = re.compile(r"^{}\s*".format(comment) + "{{{")
-        vscode_folding_markers_re = re.compile(r"^{}\s*region".format(comment))
+        double_percent_re = re.compile(rf"^{comment}( %%|%%)$")
+        double_percent_and_space_re = re.compile(rf"^{comment}( %%|%%)\s")
+        nbconvert_script_re = re.compile(rf"^{comment}( <codecell>| In\[[0-9 ]*\]:?)")
+        vim_folding_markers_re = re.compile(rf"^{comment}\s*" + "{{{")
+        vscode_folding_markers_re = re.compile(rf"^{comment}\s*region")
 
         twenty_hash_count = 0
         double_percent_count = 0
@@ -397,7 +396,7 @@ def divine_format(text):
 
     lines = text.splitlines()
     for comment in ["", "#"] + _COMMENT_CHARS:
-        metadata, _, _, _ = header_to_metadata_and_cell(lines, comment)
+        metadata, _, _, _ = header_to_metadata_and_cell(lines, comment, "")
         ext = (
             metadata.get("jupytext", {}).get("text_representation", {}).get("extension")
         )
@@ -693,15 +692,11 @@ def short_form_one_format(jupytext_format):
         fmt = jupytext_format["prefix"] + "/" + fmt
 
     if jupytext_format.get("format_name"):
-        if (
-            jupytext_format["extension"]
-            not in [
-                ".md",
-                ".markdown",
-                ".Rmd",
-            ]
-            or jupytext_format["format_name"] in ["pandoc", MYST_FORMAT_NAME]
-        ):
+        if jupytext_format["extension"] not in [
+            ".md",
+            ".markdown",
+            ".Rmd",
+        ] or jupytext_format["format_name"] in ["pandoc", MYST_FORMAT_NAME]:
             fmt = fmt + ":" + jupytext_format["format_name"]
 
     return fmt

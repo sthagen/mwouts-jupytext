@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import sys
 import time
@@ -439,6 +437,7 @@ def test_update_metadata(py_file, tmpdir, capsys):
     assert "invalid" in err
 
 
+@requires_user_kernel_python3
 @pytest.mark.parametrize("py_file", list_notebooks("python"))
 def test_set_kernel_inplace(py_file, tmpdir):
     tmp_py = str(tmpdir.join("notebook.py"))
@@ -453,6 +452,7 @@ def test_set_kernel_inplace(py_file, tmpdir):
     assert cmd == "python" or os.path.samefile(cmd, sys.executable)
 
 
+@requires_user_kernel_python3
 @pytest.mark.parametrize("py_file", list_notebooks("python"))
 def test_set_kernel_auto(py_file, tmpdir):
     tmp_py = str(tmpdir.join("notebook.py"))
@@ -468,6 +468,7 @@ def test_set_kernel_auto(py_file, tmpdir):
     assert cmd == "python" or os.path.samefile(cmd, sys.executable)
 
 
+@requires_user_kernel_python3
 @pytest.mark.parametrize("py_file", list_notebooks("python"))
 def test_set_kernel_with_name(py_file, tmpdir):
     tmp_py = str(tmpdir.join("notebook.py"))
@@ -500,9 +501,9 @@ def test_paired_paths(nb_file, tmpdir, capsys):
     assert not err
 
     formats = nb.metadata.get("jupytext", {}).get("formats")
-    assert set(out.splitlines()).union([tmp_ipynb]) == set(
-        [path for path, _ in paired_paths(tmp_ipynb, "ipynb", formats)]
-    )
+    assert set(out.splitlines()).union([tmp_ipynb]) == {
+        path for path, _ in paired_paths(tmp_ipynb, "ipynb", formats)
+    }
 
 
 @pytest.mark.parametrize("nb_file", list_notebooks("ipynb_py"))
@@ -673,8 +674,9 @@ def test_cli_can_infer_jupytext_format_from_stdin(nb_file, tmpdir, cwd_tmpdir):
     compare_notebooks(nb2, nb, "Rmd")
 
 
+@requires_user_kernel_python3
 def test_set_kernel_works_with_pipes_326(capsys):
-    md = u"""```python
+    md = """```python
 1 + 1
 ```"""
 
@@ -687,10 +689,11 @@ def test_set_kernel_works_with_pipes_326(capsys):
     assert "kernelspec" in nb.metadata
 
 
+@requires_user_kernel_python3
 @skip_on_windows
 @pytest.mark.filterwarnings("ignore")
 def test_utf8_out_331(capsys, caplog):
-    py = u"from IPython.core.display import HTML; HTML(u'\xd7')"
+    py = "from IPython.core.display import HTML; HTML(u'\xd7')"
 
     with mock.patch("sys.stdin", StringIO(py)):
         jupytext(["--to", "ipynb", "--execute", "-"])
@@ -701,7 +704,7 @@ def test_utf8_out_331(capsys, caplog):
     nb = reads(out, "ipynb")
     assert len(nb.cells) == 1
     print(nb.cells[0].outputs)
-    assert nb.cells[0].outputs[0]["data"]["text/html"] == u"\xd7"
+    assert nb.cells[0].outputs[0]["data"]["text/html"] == "\xd7"
 
 
 @requires_jupytext_installed
@@ -1004,11 +1007,24 @@ def test_set_format_with_subfolder(tmpdir, cwd_tmpdir):
     )
 
 
-@requires_myst
-@requires_pandoc
+def skip_if_format_missing(format_name):
+    """Check whether MyST or Pandoc are available and skip if not"""
+    if format_name == "md:myst":
+        mark = requires_myst()
+    elif format_name == "md:pandoc":
+        mark = requires_pandoc()
+    else:
+        return
+
+    if mark.args[0]:
+        pytest.skip(**mark.kwargs)
+
+
 @pytest.mark.parametrize("format_name", ["md", "md:myst", "md:pandoc"])
 def test_create_header_with_set_formats(format_name, cwd_tmpdir, tmpdir):
     """Test jupytext --set-formats <format_name> #485"""
+
+    skip_if_format_missing(format_name)
 
     tmpdir.join("notebook.md").write("\n")
 
@@ -1018,13 +1034,14 @@ def test_create_header_with_set_formats(format_name, cwd_tmpdir, tmpdir):
     assert nb["metadata"]["jupytext"]["formats"] == format_name
 
 
-@requires_myst
-@requires_pandoc
+@requires_user_kernel_python3
 @pytest.mark.parametrize(
     "format_name", ["md", "md:myst", "md:pandoc", "py:light", "py:percent"]
 )
 def test_create_header_with_set_formats_and_set_kernel(format_name, tmpdir, cwd_tmpdir):
     """Test jupytext --set-formats <format_name> --set-kernel - #485"""
+
+    skip_if_format_missing(format_name)
 
     ext = format_name.split(":")[0]
     tmp_nb = "notebook." + ext
@@ -1150,12 +1167,13 @@ def no_warning():
 
     # There should be no warning
     for record in records:
-        # Temporary exception for for this one, see #865
+        # Temporary exception for this one, see #865
+        # (does not seem to not occur anymore, as of April 2022, see #947)
         if (
             "Passing a schema to Validator.iter_errors is deprecated "
             "and will be removed in a future release" in str(record.message)
         ):
-            continue
+            continue  # pragma: no cover
         raise RuntimeError(record)
 
 
@@ -1421,3 +1439,18 @@ def test_round_trip_with_null_metadata_792(tmpdir, cwd_tmpdir, python_notebook):
     jupytext(["--to", "ipynb", "test.py"])
     nb = read("test.ipynb")
     assert nb.metadata.kernelspec.env is None
+
+
+def test_set_shebang_with_update_metadata(tmp_path, python_notebook):
+    tmp_py = tmp_path / "nb.py"
+    write(python_notebook, tmp_py, fmt="py:percent")
+
+    jupytext(
+        [
+            str(tmp_py),
+            "--update-metadata",
+            '{"jupytext":{"executable":"/usr/bin/python"}}',
+        ]
+    )
+
+    assert tmp_py.read_text().startswith("#!/usr/bin/python")

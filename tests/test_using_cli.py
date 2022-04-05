@@ -7,11 +7,12 @@ from nbformat.v4.nbbase import new_code_cell, new_notebook
 import jupytext
 from jupytext.cli import jupytext as jupytext_cli
 
-from .utils import requires_black, requires_myst
+from .utils import requires_black, requires_myst, requires_user_kernel_python3
 
 doc_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "docs")
 
 
+@requires_user_kernel_python3
 @requires_black
 @requires_myst
 @pytest.mark.skipif(
@@ -53,7 +54,7 @@ def test_jupytext_commands_in_the_documentation_work(tmpdir):
                 if '"' not in comment:
                     cmd = left
 
-            print("Testing: {}".format(cmd))
+            print(f"Testing: {cmd}")
             args = shlex.split(cmd)[1:]
             assert not jupytext_cli(args), cmd
             cmd_tested += 1

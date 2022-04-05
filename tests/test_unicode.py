@@ -1,4 +1,3 @@
-# coding: utf-8
 import pytest
 from nbformat.v4.nbbase import new_markdown_cell, new_notebook
 
@@ -17,13 +16,13 @@ def test_notebook_contents_is_unicode(nb_file):
 
 
 def test_write_non_ascii(tmpdir):
-    nb = jupytext.reads(u"Non-ascii contênt", "Rmd")
+    nb = jupytext.reads("Non-ascii contênt", "Rmd")
     jupytext.write(nb, str(tmpdir.join("notebook.Rmd")))
     jupytext.write(nb, str(tmpdir.join("notebook.ipynb")))
 
 
-def test_encoding_in_scripts_only(no_jupytext_version_number):
-    """UTF encoding should not be added to markdown files"""
+def test_no_encoding_in_python_scripts(no_jupytext_version_number):
+    """No UTF encoding should not be added to Python scripts"""
     nb = new_notebook(
         cells=[new_markdown_cell("α")],
         metadata={
@@ -31,7 +30,38 @@ def test_encoding_in_scripts_only(no_jupytext_version_number):
                 "display_name": "Python 3",
                 "language": "python",
                 "name": "python3",
-            }
+            },
+        },
+    )
+
+    # Saving to and reading from py creates an encoding
+    py_light = jupytext.writes(nb, "py:light")
+    compare(
+        py_light,
+        """# ---
+# jupyter:
+#   kernelspec:
+#     display_name: Python 3
+#     language: python
+#     name: python3
+# ---
+
+# α
+""",
+    )
+
+
+def test_encoding_in_scripts_only(no_jupytext_version_number):
+    """UTF encoding should not be added to markdown files"""
+    nb = new_notebook(
+        cells=[new_markdown_cell("α")],
+        metadata={
+            "encoding": "# -*- coding: utf-8 -*-",
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3",
+            },
         },
     )
 

@@ -1,6 +1,5 @@
 """Read and write Jupyter notebooks as text files"""
 
-import io
 import logging
 import os
 import sys
@@ -109,6 +108,7 @@ class TextNotebookConverter(NotebookReader, NotebookWriter):
         metadata, jupyter_md, header_cell, pos = header_to_metadata_and_cell(
             lines,
             self.implementation.header_prefix,
+            self.implementation.header_suffix,
             self.implementation.extension,
             self.fmt.get(
                 "root_level_metadata_as_raw_cell",
@@ -395,6 +395,9 @@ def read(fp, as_version=nbformat.NO_CONVERT, fmt=None, config=None, **kwargs):
 
     if fp == "-":
         text = sys.stdin.read()
+        # Update the input format by reference if missing
+        if isinstance(fmt, dict) and not fmt:
+            fmt.update(long_form_one_format(divine_format(text)))
         return reads(text, fmt)
 
     if not hasattr(fp, "read"):
@@ -405,7 +408,7 @@ def read(fp, as_version=nbformat.NO_CONVERT, fmt=None, config=None, **kwargs):
         if not isinstance(fmt, dict):
             fmt = long_form_one_format(fmt)
         fmt.update({"extension": ext})
-        with io.open(fp, encoding="utf-8") as stream:
+        with open(fp, encoding="utf-8") as stream:
             return read(stream, as_version=as_version, fmt=fmt, config=config, **kwargs)
 
     if fmt is not None:
@@ -521,7 +524,7 @@ def write(nb, fp, version=nbformat.NO_CONVERT, fmt=None, config=None, **kwargs):
         fmt = long_form_one_format(fmt, update={"extension": ext})
         create_prefix_dir(fp, fmt)
 
-        with io.open(fp, "w", encoding="utf-8") as stream:
+        with open(fp, "w", encoding="utf-8") as stream:
             write(nb, stream, version=version, fmt=fmt, config=config, **kwargs)
             return
     else:

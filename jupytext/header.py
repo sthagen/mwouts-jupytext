@@ -8,7 +8,11 @@ import yaml
 from nbformat.v4.nbbase import new_raw_cell
 from yaml.representer import SafeRepresenter
 
-from .languages import _SCRIPT_EXTENSIONS, comment_lines
+from .languages import (
+    _SCRIPT_EXTENSIONS,
+    comment_lines,
+    default_language_from_metadata_and_ext,
+)
 from .metadata_filter import _DEFAULT_NOTEBOOK_METADATA, filter_metadata
 from .pep8 import pep8_lines_between_cells
 from .version import __version__
@@ -58,7 +62,7 @@ def encoding_and_executable(notebook, metadata, ext):
     if comment is not None:
         if "encoding" in jupytext_metadata:
             lines.append(jupytext_metadata.pop("encoding"))
-        else:
+        elif default_language_from_metadata_and_ext(metadata, ext) != "python":
             for cell in notebook.cells:
                 try:
                     cell.source.encode("ascii")
@@ -159,7 +163,7 @@ def recursive_update(target, update):
 
 
 def header_to_metadata_and_cell(
-    lines, header_prefix, ext=None, root_level_metadata_as_raw_cell=True
+    lines, header_prefix, header_suffix, ext=None, root_level_metadata_as_raw_cell=True
 ):
     """
     Return the metadata, a boolean to indicate if a jupyter section was found,
@@ -181,7 +185,7 @@ def header_to_metadata_and_cell(
     comment = "#" if header_prefix == "#'" else header_prefix
 
     encoding_re = re.compile(
-        r"^[ \t\f]*{}.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)".format(re.escape(comment))
+        rf"^[ \t\f]*{re.escape(comment)}.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)"
     )
 
     for i, line in enumerate(lines):
@@ -210,12 +214,6 @@ def header_to_metadata_and_cell(
                     break
             if not started and not line.strip():
                 continue
-
-        # OCAML
-        if header_prefix == "(*":
-            header_suffix = "*)"
-        else:
-            header_suffix = ""
 
         line = uncomment_line(line, header_prefix, header_suffix)
         if _HEADER_RE.match(line):

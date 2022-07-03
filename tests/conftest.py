@@ -38,6 +38,13 @@ def cwd_tmpdir(tmpdir):
         yield tmpdir
 
 
+@pytest.fixture()
+def cwd_tmp_path(tmp_path):
+    # Run the whole test from inside tmp_path
+    with tmp_path.cwd():
+        yield tmp_path
+
+
 @pytest.fixture
 def jupytext_repo_root():
     """The local path of this repo, to use in .pre-commit-config.yaml in tests"""
@@ -76,7 +83,7 @@ def notebook_with_outputs():
                 execution_count=1,
                 outputs=[
                     new_output(
-                        data={"text/plain": ["2"]},
+                        data={"text/plain": "2"},
                         execution_count=1,
                         output_type="execute_result",
                     )

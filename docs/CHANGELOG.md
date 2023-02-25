@@ -1,6 +1,25 @@
 Jupytext ChangeLog
 ==================
 
+1.14.5 (2023-02-??)
+-------------------
+
+**Added**
+- Added Stata as a supported language ([#1014](https://github.com/mwouts/jupytext/pull/1027)) - thanks to [Raffaele Mancuso](https://github.com/raffaem) for this contribution
+- We have added a series of test to make sure that the main formats support cell tags ([#1024](https://github.com/mwouts/jupytext/issues/1024))
+
+**Fixed**
+- When a metadata key is not a valid identifier, a warning is emitted and the metadata is not saved to the text representation ([#1042](https://github.com/mwouts/jupytext/issues/1042))
+- The CI was fixed by [Matthew Feickert](https://github.com/matthewfeickert) ([#1035](https://github.com/mwouts/jupytext/pull/1035))
+- We now use `concurrency` to cancel previous runs on the same branch/PR ([#1037](https://github.com/mwouts/jupytext/issues/1037))
+- We use both `codecov.notify.after_n_builds` and `comment.after_n_builds` to get only the final codecov comment
+
+**Changed**
+- Empty tags are not exported to the text notebook anymore ([#960](https://github.com/mwouts/jupytext/issues/960))
+- We updated the `yarn.lock` file for the jupyter lab extension to address security vulnerabilities ([#1030](https://github.com/mwouts/jupytext/issues/1030), [#1036](https://github.com/mwouts/jupytext/issues/1036))
+- In the pre-commit tests we now use `main` for the main branch
+
+
 1.14.4 (2022-12-11)
 -------------------
 

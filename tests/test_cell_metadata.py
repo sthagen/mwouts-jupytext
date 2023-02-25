@@ -1,8 +1,11 @@
 import pytest
+from nbformat.v4.nbbase import new_code_cell, new_markdown_cell
 
+import jupytext
 from jupytext.cell_metadata import (
     _IGNORE_CELL_METADATA,
     RMarkdownOptionParsingError,
+    is_valid_metadata_key,
     metadata_to_rmd_options,
     metadata_to_text,
     parse_key_equal_value,
@@ -11,7 +14,8 @@ from jupytext.cell_metadata import (
     text_to_metadata,
     try_eval_metadata,
 )
-from jupytext.compare import compare
+from jupytext.combine import combine_inputs_with_outputs
+from jupytext.compare import compare, compare_notebooks
 from jupytext.metadata_filter import filter_metadata
 
 
@@ -226,3 +230,67 @@ def test_parse_key_value_key():
         "key": "value",
         "key2": None,
     }
+
+
+@pytest.mark.parametrize(
+    "key", ["ok", "also.ok", "all_right_55", "not,ok", "unexpected,key"]
+)
+def test_is_valid_metadata_key(key):
+    assert is_valid_metadata_key(key) == ("," not in key)
+
+
+@pytest.fixture()
+def notebook_with_unsupported_key_in_metadata(python_notebook):
+    nb = python_notebook
+    nb.cells.append(new_markdown_cell("text", metadata={"unexpected,key": True}))
+    return nb
+
+
+def test_unsupported_key_in_metadata(
+    notebook_with_unsupported_key_in_metadata, fmt_with_cell_metadata
+):
+    """Notebook metadata that can't be parsed in text notebook cannot go to the text file,
+    but it should still remain available in the ipynb file for paired notebooks."""
+    with pytest.warns(
+        UserWarning,
+        match="The following metadata cannot be exported to the text notebook",
+    ):
+        text = jupytext.writes(
+            notebook_with_unsupported_key_in_metadata, fmt_with_cell_metadata
+        )
+    assert "unexpected" not in text
+    nb_text = jupytext.reads(text, fmt=fmt_with_cell_metadata)
+    nb = combine_inputs_with_outputs(
+        nb_text, notebook_with_unsupported_key_in_metadata, fmt=fmt_with_cell_metadata
+    )
+    assert nb.cells[-1].metadata == {"unexpected,key": True}
+
+
+@pytest.fixture()
+def notebook_with_collapsed_cell(python_notebook):
+    nb = python_notebook
+    nb.cells.append(
+        new_markdown_cell("## Data", metadata={"jp-MarkdownHeadingCollapsed": True})
+    )
+    return nb
+
+
+def test_notebook_with_collapsed_cell(
+    notebook_with_collapsed_cell, fmt_with_cell_metadata
+):
+    text = jupytext.writes(notebook_with_collapsed_cell, fmt_with_cell_metadata)
+    assert "MarkdownHeadingCollapsed" in text
+    nb = jupytext.reads(text, fmt=fmt_with_cell_metadata)
+    compare_notebooks(nb, notebook_with_collapsed_cell, fmt=fmt_with_cell_metadata)
+
+
+def test_empty_tags_are_not_saved_in_text_notebooks(
+    no_jupytext_version_number, python_notebook, fmt="py:percent"
+):
+    nb = python_notebook
+    nb.cells.append(new_code_cell(metadata={"tags": []}))
+    text = jupytext.writes(nb, fmt=fmt)
+    assert "tags" not in text
+    nb_text = jupytext.reads(text, fmt=fmt)
+    nb2 = combine_inputs_with_outputs(nb_text, nb, fmt=fmt)
+    assert nb2.cells[-1].metadata["tags"] == []

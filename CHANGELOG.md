@@ -1,15 +1,19 @@
 Jupytext ChangeLog
 ==================
 
-1.16.2-dev (2024-05-??)
+1.16.2 (2024-05-05)
 -------------------
 
 **Added**
 - Added support for Xonsh notebooks ([#1213](https://github.com/mwouts/jupytext/pull/1213)) - thanks to [Jeffrey Odongo](https://github.com/jsquaredosquared) for this contribution
 
 **Changed**
+- By default, the JupyterLab extension for Jupytext is not included in the build (set `HATCH_BUILD_HOOKS_ENABLE=true` to include it). This simplifies the installation of Jupytext in pre-commit hooks ([#1210](https://github.com/mwouts/jupytext/issues/1210))
 - Temporary text notebooks for the `--pipe` or `--check` commands are now created in the notebook directory ([#1206](https://github.com/mwouts/jupytext/issues/1206))
 - Jupytext uses the standard library `tomllib` in Python 3.11, or `tomli` in Python 3.10 or older, to match JupyterLab's dependencies ([#1195](https://github.com/mwouts/jupytext/issues/1195))
+- The dependencies of the JupyterLab extension were updated ([#1216](https://github.com/mwouts/jupytext/issues/1216), [#1218](https://github.com/mwouts/jupytext/issues/1218), [#1231](https://github.com/mwouts/jupytext/issues/1231))
+- `jupytext --sync` will not update the timestamp of text notebooks if their content is unchanged ([#1215](https://github.com/mwouts/jupytext/issues/1215))
+
 
 **Fixed**
 - Jupytext is now tested with `pandoc>=3.0`. Please note that switching to `pandoc>=3.0` will add cell ids to your `pandoc:md` notebooks ([#1006](https://github.com/mwouts/jupytext/issues/1006))

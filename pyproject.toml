@@ -50,11 +50,13 @@ Documentation = "https://jupytext.readthedocs.io"
 # Test related dependencies
 test = [
   "pytest",
+  "pytest-asyncio",
   "pytest-xdist",
   "pytest-randomly"
 ]
 test-functional = [
   "jupytext[test]",
+  "black",
 ]
 test-integration = [
   "jupytext[test-functional]",
@@ -71,8 +73,8 @@ test-external = [
   "isort",
   "flake8",
   # Sphinx gallery
-  "sphinx<8", # Issue 1266
-  "sphinx-gallery<0.8",
+  "sphinx",
+  "sphinx-gallery>=0.8",
   # Pre-commit tests
   "gitpython",
   "pre-commit",
@@ -205,6 +207,7 @@ markers = [
     "requires_ir_kernel",
     "skip_on_windows",
     "pre_commit",
+    "asyncio"
 ]
 filterwarnings = [
     # Uncomment this "error" to turn all unfiltered warnings into errors

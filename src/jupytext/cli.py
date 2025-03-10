@@ -118,11 +118,10 @@ def parse_jupytext_args(args=None):
                     }
                 )
             )
-            + "The default format for scripts is the 'light' format, "
-            "which uses few cell markers (none when possible). "
-            "Alternatively, a format compatible with many editors is the "
-            "'percent' format, which uses '# %%%%' as cell markers. "
-            "The main formats (markdown, light, percent) preserve "
+            + "The default format for scripts is the 'percent' format, "
+            "which uses '# %%%%' as cell markers and is compatible with VS Code and PyCharm. "
+            "Alternatively, you can also use the 'light' format, which uses fewer cell markers. "
+            "The main formats (MyST Markdown, Markdown, percent, light) preserve "
             "notebooks and text documents in a roundtrip. Use the "
             "--test and and --test-strict commands to test the roundtrip on your files. "
             "Read more about the available formats at "
@@ -799,7 +798,13 @@ def jupytext_single_file(nb_file, args, log):
     # b. Output to the desired file or format
     untracked_files = 0
 
-    def lazy_write(path, fmt=None, action=None, update_timestamp_only=False):
+    def lazy_write(
+        path,
+        fmt=None,
+        action=None,
+        update_timestamp_only=False,
+        force_update_timestamp=False,
+    ):
         """Write the notebook only if it has changed"""
         if path == "-":
             write(notebook, "-", fmt=fmt)
@@ -818,6 +823,7 @@ def jupytext_single_file(nb_file, args, log):
                 new_content += "\n"
             if not os.path.isfile(path):
                 modified = True
+                diff = "(file did not exist)"
             else:
                 with open(path, encoding="utf-8") as fp:
                     current_content = fp.read()
@@ -843,7 +849,7 @@ def jupytext_single_file(nb_file, args, log):
                     else "",
                     action=action,
                 )
-            if diff is not None:
+            if args.show_changes:
                 message += " with this change:\n" + diff
 
             log(message)
@@ -863,7 +869,7 @@ def jupytext_single_file(nb_file, args, log):
             if path.endswith(".ipynb"):
                 # No need to update the timestamp of ipynb files
                 log(f"[jupytext] Unchanged {shlex.quote(path)}")
-            elif args.sync:
+            elif args.sync and not force_update_timestamp:
                 # if the content is unchanged (and matches ipynb), we don't need
                 # to update the timestamp as the contents manager will not throw in
                 # that case (see the try/catch on read_pair(... must_match=True))
@@ -883,7 +889,7 @@ def jupytext_single_file(nb_file, args, log):
             )
             untracked_files += 1
 
-        return
+        return {"modified": modified}
 
     if nb_dest:
         if nb_dest == nb_file and not dest_fmt:

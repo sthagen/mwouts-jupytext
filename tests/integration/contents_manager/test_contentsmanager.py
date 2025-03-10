@@ -107,6 +107,7 @@ async def test_load_save_rename(ipynb_py_R_jl_file, cm, tmpdir):
 
     cm.formats = "ipynb,Rmd"
     cm.root_dir = str(tmpdir)
+    cm.delete_to_trash = False
 
     # open ipynb, save Rmd, reopen
     nb = jupytext.read(ipynb_py_R_jl_file)
@@ -486,10 +487,10 @@ async def test_outdated_text_notebook_diff_is_shown(tmpdir, cm, python_notebook)
         """Differences (jupytext --diff notebook.py notebook.ipynb) are:
 --- notebook.py
 +++ notebook.ipynb
-@@ -12,5 +12,5 @@
- #     name: python_kernel
+@@ -13,5 +13,5 @@
  # ---
 
+ # %%%% [markdown]
 -# Text version 1.0
 +# Text version 2.0
 
@@ -1342,7 +1343,7 @@ async def test_vim_folding_markers(tmpdir, cm):
 
     # Default Vim folding markers
     cm.cell_markers = "{{{,}}}"
-    cm.formats = "ipynb,py"
+    cm.formats = "ipynb,py:light"
 
     nb = new_notebook(
         cells=[
@@ -1397,7 +1398,7 @@ async def test_vscode_pycharm_folding_markers(tmpdir, cm):
 
     # Default VScode/PyCharm folding markers
     cm.cell_markers = "region,endregion"
-    cm.formats = "ipynb,py"
+    cm.formats = "ipynb,py:light"
 
     nb = new_notebook(
         cells=[

@@ -88,8 +88,9 @@ test-cov = [
 ]
 # Galata test env
 # Install a non python kernel to ensure extension is working as expected
+# Kernel spec is installed before running UI tests
 test-ui = [
-    "calysto-bash",
+    "bash_kernel",
 ]
 dev = [
     "jupytext[test-cov,test-external]",
@@ -246,6 +247,9 @@ filterwarnings = [
     "ignore:the imp module is deprecated in favour of importlib:DeprecationWarning",
     "ignore:Code cell is missing an id field:FutureWarning",
     "ignore:There is no current event loop:DeprecationWarning",
+    # Intermittent in tests/functional/cli/test_cli.py::test_format_prefix_suffix #1357
+    "ignore:unclosed database in <sqlite3.Connection:ResourceWarning",
+    "ignore:Exception ignored:pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]

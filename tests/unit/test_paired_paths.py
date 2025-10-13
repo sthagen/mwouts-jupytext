@@ -99,6 +99,21 @@ def test_paired_paths_windows_no_subfolder():
         paired_paths(nb_file, "notebooks///ipynb", formats)
 
 
+def test_paired_paths_windows_relative():
+    """Test Windows pairing with relative paths and backslash as path separator, issue #1028"""
+    nb_file = "C:\\notebooks\\example.ipynb"
+    formats = "notebooks///ipynb,scripts///py:percent"
+    with mock.patch("os.path.sep", "\\"):
+        # Should not raise InconsistentPath
+        paths = paired_paths(nb_file, "notebooks///ipynb", formats)
+        # Verify the notebook path is in the paired paths
+        path_list = [p[0] for p in paths]
+        assert nb_file in path_list, f"Expected {nb_file} to be in paired paths {path_list}"
+        # Verify both paths use backslashes on Windows
+        assert paths[0][0] == "C:\\notebooks\\example.ipynb"
+        assert paths[1][0] == "C:\\scripts\\example.py"
+
+
 @pytest.mark.parametrize("os_path_sep", ["\\", "/"])
 def test_paired_path_dotdot_564(os_path_sep):
     main_path = os_path_sep.join(["examples", "tutorials", "colabs", "rigid_object_tutorial.ipynb"])
@@ -324,3 +339,12 @@ def test_paired_notebook_ipynb_root_scripts_in_folder_806(tmpdir, cwd_tmpdir, py
 def test_paired_paths_and_adjusted_fmt(path, input_fmt, adjusted_fmt):
     base_path, actual_adjusted_fmt = base_path_and_adjusted_fmt(path, input_fmt)
     assert actual_adjusted_fmt == adjusted_fmt
+
+
+@pytest.mark.parametrize("os_sep", ["\\", "/"])
+def test_base_path_os_sep(os_sep):
+    fmt = "notebooks/tutorials///ipynb"
+    root = ("" if os_sep == "/" else "C:") + os_sep
+    path = root + os_sep.join(["notebooks", "tutorials", "subfolder", "notebook.ipynb"])
+    with mock.patch("os.path.sep", os_sep):
+        assert base_path(path, fmt) == root + os_sep.join(["//subfolder", "notebook"])

@@ -7,10 +7,13 @@ Jupytext ChangeLog
 **Changed**
 - We have skipped the tests that involve `jupyterfs` on Python 3.12+ as they started failing on the CI with no obvious way to fix them ([#1509](https://github.com/mwouts/jupytext/issues/1509))
 - We have changed the configuration of Dependabot to get grouped dependency updates for our JupyterLab extension.
+- The CI workflow has been restructured to maximize parallelization. All test suites (pip, conda, UI) and the build step now run concurrently after pre-commit checks, instead of sequentially, reducing CI times ([#1527](https://github.com/mwouts/jupytext/pull/1527))
 
 
 **Fixed**
+- Trusted notebooks remain trusted after `jupytext --sync` ([#1505](https://github.com/mwouts/jupytext/issues/1505))
 - We have fixed the homepage link in `package.json`. Thanks to [Michał Krassowski](https://github.com/krassowski) for making this PR ([#1494](https://github.com/mwouts/jupytext/pull/1494))
+- Thanks to [Brigitta Sipőcz](https://github.com/bsipocz) for fixing a broken link in our CLI ([#1428](https://github.com/mwouts/jupytext/pull/1428))
 
 
 1.19.1 (2026-01-25)

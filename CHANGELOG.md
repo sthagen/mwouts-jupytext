@@ -4,9 +4,26 @@ Jupytext ChangeLog
 1.19.4.dev0 (wip)
 -----------------
 
+**Fixed**
+- fix: Support unicode characters while dumping YAML ([#1542](https://github.com/mwouts/jupytext/pull/1542))
+
 **Changed**
 - Jupytext's documentation is now at https://jupytext.org! ([#1538](https://github.com/mwouts/jupytext/pull/1538))
+- Fixed the RTD website and updated remaining references from `jupytext.readthedocs.io` to `jupytext.org` ([#1540](https://github.com/mwouts/jupytext/pull/1540))
+- Fixed the CI so that tests also run on scheduled runs, and so that `jupyterfs` tests are skipped when their initialization fails ([#1539](https://github.com/mwouts/jupytext/pull/1539))
+- Updated the JupyterLab extension production dependencies (12 patch updates) ([#1541](https://github.com/mwouts/jupytext/pull/1541))
+- We require `pandoc<3.10` on the CI as pandoc converts the "3.10" string to a float, which then causes issues in Jupytext ([#1545](https://github.com/mwouts/jupytext/issues/1545))
 
+**Security**
+- Fixed [GHSA-m22c-4q2m-m5wr](https://github.com/mwouts/jupytext/security/advisories/GHSA-m22c-4q2m-m5wr): the `update-playwright-snapshots` workflow was
+  triggerable by any user via an `issue_comment` event. It now checks that the
+  comment author is an OWNER, MEMBER, or COLLABORATOR before running
+  ([#1535](https://github.com/mwouts/jupytext/pull/1535))
+- Set `persist-credentials: false` on all workflow checkout steps as
+  defense-in-depth, preventing a live `GITHUB_TOKEN` from being left in
+  `.git/config` where attacker-controlled build hooks could read it. This is
+  strictly required only for `update-playwright-snapshots` (fixed above), but
+  applies to all workflows so they remain safe if their scope is later extended.
 
 1.19.3 (2026-05-17)
 -------------------

@@ -194,9 +194,12 @@ export async function getAvailableCreateTextNotebookCommands(
                 if (numKernels === mapIndex) {
                   updatedKernelLanguageFileType.separator = true;
                 }
-                createTextNotebookCommands
-                  .get(updatedKernelKey)
-                  .push(updatedKernelLanguageFileType);
+                const kernelCommands =
+                  createTextNotebookCommands.get(updatedKernelKey);
+                if (!kernelCommands) {
+                  return;
+                }
+                kernelCommands.push(updatedKernelLanguageFileType);
                 // Update includeFormats with the language specific formats
                 // Effectiviely we will add formats like py:light, js:light here
                 if (includeFormats.includes(format)) {
@@ -209,7 +212,11 @@ export async function getAvailableCreateTextNotebookCommands(
           if (createTextNotebookCommands.get(format) === undefined) {
             createTextNotebookCommands.set(format, []);
           }
-          createTextNotebookCommands.get(format).push(fileType);
+          const formatCommands = createTextNotebookCommands.get(format);
+          if (!formatCommands) {
+            return;
+          }
+          formatCommands.push(fileType);
         }
       });
     },

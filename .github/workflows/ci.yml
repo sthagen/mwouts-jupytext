@@ -26,42 +26,50 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  zizmor:
+    uses: ./.github/workflows/step_zizmor.yml
+    permissions:
+      contents: read
+      security-events: write
+
   pre-commit:
     uses: ./.github/workflows/step_pre-commit.yml
 
   static-analysis:
+    needs: [ zizmor, pre-commit ]
     uses: ./.github/workflows/step_static-analysis.yml
     permissions:
       contents: read
       security-events: write
 
   coverage:
+    needs: [ zizmor, pre-commit ]
     uses: ./.github/workflows/step_coverage.yml
 
   test-pip:
-    needs: [ coverage ]
+    needs: [ zizmor, pre-commit, coverage ]
     uses: ./.github/workflows/step_tests-pip.yml
 
   test-conda:
-    needs: [ coverage ]
+    needs: [ zizmor, pre-commit, coverage ]
     uses: ./.github/workflows/step_tests-conda.yml
 
   test-ui:
-    needs: [ coverage ]
+    needs: [ zizmor, pre-commit, coverage ]
     uses: ./.github/workflows/step_tests-ui.yml
 
   build:
-    needs: [ coverage ]
+    needs: [ zizmor, pre-commit, coverage ]
     uses: ./.github/workflows/step_build.yml
     with:
       upload: ${{ inputs.upload-build-artifacts || false }}
 
   pass:
     name: Pass
-    needs: [ pre-commit, static-analysis, test-pip, coverage, test-conda, test-ui, build ]
+    needs: [ zizmor, pre-commit, static-analysis, test-pip, coverage, test-conda, test-ui, build ]
     runs-on: ubuntu-latest
     steps:
-      - uses: re-actors/alls-green@release/v1
+      - uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # v1.2.2
         with:
           jobs: ${{ toJSON(needs) }}
           allowed-skips: coverage

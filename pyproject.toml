@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.5.0", "hatch-jupyter-builder>=0.5", "jupyterlab>=4"]
+requires = ["hatchling>=1.5.0", "hatch-jupyter-builder>=0.5", "jupyter-builder>=1.0.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -145,7 +145,7 @@ enable-by-default = false
 # extension. To install the extension, it is required to run
 # `HATCH_BUILD_HOOKS_ENABLE=true pip install .`
 # Runtime dependency for this build hook
-# We need jupyterlab as build time depdendency to get jlpm (wrapper around yarn)
+# We need jupyter-builder as build time depdendency to get jlpm (wrapper around yarn)
 # UPDATE 20260118: Based on https://github.com/jupyterlab/hatch-jupyter-builder/issues/146
 # we moved all the dependencies to build system dependencies
 # We use npm_builder to build the jupyterlab extension
@@ -286,12 +286,13 @@ platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
 
 [tool.pixi.dependencies]
 python = "3.13.13.*" # One test involving Black fails on the CI
-jupyterlab = ">=4.0"
+jupyterlab = ">=4.6.1,<5"
 nbformat = ">=5.1.2"
 pre-commit = ">=4.3"
 nodejs = ">=20"
 hatch = "*"
 pip = "*"
+jupyter-builder = ">=1.1.0,<2"
 
 [tool.pixi.feature.docs.dependencies]
 sphinx = "*"
@@ -307,7 +308,8 @@ pandoc = ">=3.0,<3.10"  # 1545
 [tool.pixi.feature.build.dependencies]
 python = "3.13.*"
 nodejs = ">=20"
-jupyterlab = ">=4.0"
+jupyterlab = ">=4.6.1,<5"
+jupyter-builder = ">=1.1.0,<2"
 
 [tool.pixi.feature.build.tasks]
 build-labextension = { cmd = "jlpm install && jlpm run build:prod", cwd = "jupyterlab" }

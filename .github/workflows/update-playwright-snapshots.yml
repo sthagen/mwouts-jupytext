@@ -24,7 +24,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -43,7 +43,7 @@ jobs:
           pip uninstall jupyter-fs -y
 
       - name: Update snapshots
-        uses: jupyterlab/maintainer-tools/.github/actions/update-snapshots@b48fcdb87e70c45789abd80d4042b06641e47b46 # v1
+        uses: jupyterlab/maintainer-tools/.github/actions/update-snapshots@94b14ddfbdd1ed651e9f9343ae2409ab5c73a6a8 # v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # Test folder within your repository

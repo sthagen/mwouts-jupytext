@@ -1,0 +1,44 @@
+{
+    "name": "Jupytext development",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".",
+        "options": ["--platform=linux/amd64"]
+    },
+    "runArgs": ["--platform=linux/amd64"],
+    "remoteUser": "vscode",
+    "mounts": [
+        "source=${devcontainerId}-pixi,target=${containerWorkspaceFolder}/.pixi,type=volume"
+    ],
+    "postCreateCommand": "sudo chown vscode:vscode .pixi && pixi install --locked && pixi run --locked python -m ipykernel install --name python_kernel --user",
+    "waitFor": "postCreateCommand",
+    "remoteEnv": {
+        "PATH": "${containerWorkspaceFolder}/.pixi/envs/default/bin:${containerEnv:PATH}"
+    },
+    "forwardPorts": [8888, 4321],
+    "portsAttributes": {
+        "8888": {"label": "JupyterLab"},
+        "4321": {"label": "Jupytext website"}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-pyright.pyright",
+                "charliermarsh.ruff",
+                "openai.chatgpt"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/default/bin/python",
+                "python.pythonPath": "${workspaceFolder}/.pixi/envs/default/bin/python",
+                "python.languageServer": "None",
+                "python.testing.pytestEnabled": true,
+                "python.testing.unittestEnabled": false,
+                "python.testing.pytestArgs": ["tests"],
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                }
+            }
+        }
+    }
+}

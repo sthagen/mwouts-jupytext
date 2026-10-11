@@ -28,8 +28,23 @@ from .pep8 import pep8_lines_between_cells
 from .stringparser import StringParser
 
 _BLANK_LINE = re.compile(r"^\s*$")
+_CODE_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 _EMPTY_LINE = re.compile(r"^$")
 _PY_INDENTED = re.compile(r"^\s")
+
+
+def _opening_fence(text):
+    """Return the fence (character, length) if the line opens a markdown fenced code block"""
+    match = _CODE_FENCE.match(text)
+    if not match or (match.group(1)[0] == "`" and "`" in match.group(2)):
+        return None
+    return match.group(1)[0], len(match.group(1))
+
+
+def _closes_fence(text, fence):
+    """Does the line close the given fence? Same character, at least as long, no info string"""
+    match = _CODE_FENCE.match(text)
+    return bool(match) and match.group(1)[0] == fence[0] and len(match.group(1)) >= fence[1] and not match.group(2).strip()
 
 
 def uncomment(lines, prefix="#", suffix=""):
@@ -800,12 +815,29 @@ class DoublePercentScriptCellReader(LightScriptCellReader):
 
         next_cell = len(lines)
         parser = StringParser(self.language or self.default_language)
+        fence = None
         for i, line in enumerate(lines):
             if parser.is_quoted():
                 parser.read_line(line)
                 continue
 
             parser.read_line(line)
+
+            if self.cell_type in ("markdown", "raw"):
+                # In a markdown or raw cell, a fenced block (e.g. mermaid) may contain '%%' lines that are not cell markers (#1533)
+                text = uncomment([line], self.comment, self.comment_suffix)[0]
+                if fence:
+                    if _closes_fence(text, fence):
+                        fence = None
+                    continue
+                opening = _opening_fence(text)
+                if opening and any(
+                    _closes_fence(uncomment([next_line], self.comment, self.comment_suffix)[0], opening)
+                    for next_line in lines[i + 1 :]
+                ):
+                    fence = opening
+                    continue
+
             if i > 0 and (self.start_code_re.match(line) or self.alternative_start_code_re.match(line)):
                 next_cell = i
                 break
